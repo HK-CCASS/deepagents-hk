@@ -2,6 +2,10 @@
 
 from typing import Any
 
+from hkex_agent.prompts.prompts import (
+    get_pdf_analyzer_prompt,
+    get_report_generator_prompt,
+)
 from hkex_agent.tools.hkex_tools import (
     get_announcement_categories,
     get_latest_hkex_announcements,
@@ -49,23 +53,7 @@ def get_pdf_analyzer_subagent() -> dict[str, Any]:
             "Use this when you need to extract and analyze text, tables, "
             "or structure from PDF files."
         ),
-        "system_prompt": """You are a PDF analysis expert specializing in Hong Kong Stock Exchange announcements.
-
-Your primary responsibilities:
-1. Extract and analyze text content from PDF announcements
-2. Extract and structure tabular data (financial tables, etc.)
-3. Analyze PDF structure to identify sections and headings
-4. Generate summaries of PDF content
-5. Identify key information such as financial figures, dates, and important notices
-
-When analyzing PDFs:
-- Always check the cache first using get_cached_pdf_path before downloading
-- Extract both text and tables for comprehensive analysis
-- Pay attention to financial data in tables
-- Identify key sections and their purposes
-- Provide clear, structured summaries
-
-You have access to PDF analysis tools. Use them efficiently to provide thorough analysis.""",
+        "system_prompt": get_pdf_analyzer_prompt(),
         "tools": PDF_ANALYZER_TOOLS,
     }
 
@@ -86,23 +74,7 @@ def get_report_generator_subagent() -> dict[str, Any]:
             "Use this when you need to create comprehensive reports, summaries, or "
             "structured output based on announcement data and analysis."
         ),
-        "system_prompt": """You are a report generation expert specializing in Hong Kong Stock Exchange announcements.
-
-Your primary responsibilities:
-1. Generate structured reports from announcement search results
-2. Create summaries and analyses of multiple announcements
-3. Format reports in Markdown, JSON, or other structured formats
-4. Synthesize information from multiple sources into coherent reports
-5. Highlight key findings and trends
-
-When generating reports:
-- Use data from announcement searches and PDF analyses
-- Structure reports clearly with sections and subsections
-- Include relevant metadata (dates, stock codes, etc.)
-- Provide actionable insights when possible
-- Format output appropriately (Markdown for readability, JSON for structured data)
-
-You have access to all HKEX tools. Use them to gather comprehensive data before generating reports.""",
+        "system_prompt": get_report_generator_prompt(),
         "tools": REPORT_GENERATOR_TOOLS,
     }
 

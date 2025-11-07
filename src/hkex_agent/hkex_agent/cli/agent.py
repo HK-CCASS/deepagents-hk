@@ -6,6 +6,7 @@ from pathlib import Path
 
 from hkex_agent.agents.main_agent import create_hkex_agent
 from hkex_agent.cli.config import COLORS, config, console
+from hkex_agent.prompts.prompts import get_default_agent_md
 
 
 def list_agents():
@@ -58,7 +59,7 @@ def reset_agent(agent_name: str, source_agent: str = None):
         source_content = source_md.read_text()
         action_desc = f"contents of agent '{source_agent}'"
     else:
-        source_content = "# HKEX Agent Instructions\n\nCustomize this file to add persistent instructions for your agent."
+        source_content = get_default_agent_md()
         action_desc = "default"
 
     if agent_dir.exists():
