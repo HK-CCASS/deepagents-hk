@@ -4,9 +4,9 @@ import os
 import shutil
 from pathlib import Path
 
-from agents.main_agent import create_hkex_agent
-from cli.config import COLORS, config, console
-from prompts.prompts import get_default_agent_md
+from src.agents.main_agent import create_hkex_agent
+from .config import COLORS, config, console
+from src.prompts.prompts import get_default_agent_md
 
 
 def list_agents():

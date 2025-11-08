@@ -1,6 +1,6 @@
 """港交所智能体的提示词模板。"""
 
-from prompts.prompts import (
+from .prompts import (
     get_default_agent_md,
     get_longterm_memory_prompt,
     get_main_system_prompt,

@@ -12,22 +12,22 @@ from langchain.agents.middleware import HostExecutionPolicy, InterruptOnConfig
 from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 
-from agents.subagents import get_all_subagents
-from cli.agent_memory import AgentMemoryMiddleware
-from tools.hkex_tools import (
+from .subagents import get_all_subagents
+from src.cli.agent_memory import AgentMemoryMiddleware
+from src.tools.hkex_tools import (
     get_announcement_categories,
     get_latest_hkex_announcements,
     get_stock_info,
     search_hkex_announcements,
 )
-from tools.pdf_tools import (
+from src.tools.pdf_tools import (
     analyze_pdf_structure,
     download_announcement_pdf,
     extract_pdf_content,
     get_cached_pdf_path,
 )
-from prompts.prompts import get_main_system_prompt
-from tools.summary_tools import generate_summary_markdown
+from src.prompts.prompts import get_main_system_prompt
+from src.tools.summary_tools import generate_summary_markdown
 
 
 def get_system_prompt() -> str:
@@ -61,7 +61,7 @@ def create_hkex_agent(
     # PDF cache is now in project root, not in agent_dir
 
     # Create agent.md if it doesn't exist
-    from prompts.prompts import get_default_agent_md
+    from src.prompts.prompts import get_default_agent_md
     
     agent_md = agent_dir / "memories" / "agent.md"
     if not agent_md.exists():

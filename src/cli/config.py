@@ -19,22 +19,34 @@ COLORS = {
     "tool": "#fbbf24",
 }
 
-# ASCII art banner
-HKEX_AGENT_ASCII = """
-██╗  ██╗██╗  ██╗███████╗██╗  ██╗
-██║  ██║██║  ██║██╔════╝╚██╗██╔╝
-███████║███████║█████╗   ╚███╔╝
-██╔══██║██╔══██║██╔══╝   ██╔██╗
-██║  ██║██║  ██║███████╗██╔╝ ██╗
-╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+def get_hkex_banner(font: str = "slant") -> str:
+    """动态生成HKEX Agent横幅.
+    
+    Args:
+        font: 字体风格 (slant, standard, banner, digital等)
+            可通过环境变量 HKEX_ASCII_FONT 配置
+    
+    Returns:
+        生成的ASCII艺术字
+    """
+    # 从环境变量读取字体配置
+    font = os.getenv("HKEX_ASCII_FONT", font)
+    
+    try:
+        import pyfiglet
+        # 生成单行"HKEX Agent"，更紧凑
+        banner = pyfiglet.figlet_format("HKEX Agent", font=font)
+        return banner
+    except ImportError:
+        # 如果pyfiglet未安装，返回简单版本
+        return "🏢 HKEX Agent | 港交所公告分析助手\n"
+    except Exception:
+        # 如果字体不存在或其他错误，返回默认
+        return "🏢 HKEX Agent | 港交所公告分析助手\n"
 
- █████╗  ██████╗ ███████╗███╗   ██╗████████╗
-██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝
-███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║
-██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║
-██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║
-╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝
-"""
+
+# ASCII art banner - 动态生成
+HKEX_AGENT_ASCII = get_hkex_banner()
 
 # Interactive commands
 COMMANDS = {
@@ -71,6 +83,8 @@ class SessionState:
 
 def create_model():
     """Create the appropriate model based on available API keys.
+    
+    Uses unified configuration from agent_model_config for temperature and max_tokens.
 
     Priority: SiliconFlow > OpenAI > Anthropic
 
@@ -80,18 +94,23 @@ def create_model():
     Raises:
         SystemExit if no API key is configured
     """
+    # Import unified config
+    from src.config.agent_config import agent_model_config
+    
     # Check SiliconFlow first (highest priority)
     siliconflow_key = os.environ.get("SILICONFLOW_API_KEY")
     if siliconflow_key:
         from langchain_openai import ChatOpenAI
 
         model_name = os.environ.get("SILICONFLOW_MODEL", "deepseek-chat")
-        console.print(f"[dim]Using SiliconFlow model: {model_name}[/dim]")
+        console.print(f"[dim]Using SiliconFlow model: {model_name}[/dim]", justify="center")
+        console.print(f"[dim]  temperature={agent_model_config.temperature}, max_tokens={agent_model_config.max_tokens}[/dim]", justify="center")
         return ChatOpenAI(
             model=model_name,
             base_url="https://api.siliconflow.cn/v1",
             api_key=siliconflow_key,
-            temperature=0.7,
+            temperature=agent_model_config.temperature,
+            max_tokens=agent_model_config.max_tokens,
         )
 
     # Check OpenAI
@@ -100,10 +119,12 @@ def create_model():
         from langchain_openai import ChatOpenAI
 
         model_name = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
-        console.print(f"[dim]Using OpenAI model: {model_name}[/dim]")
+        console.print(f"[dim]Using OpenAI model: {model_name}[/dim]", justify="center")
+        console.print(f"[dim]  temperature={agent_model_config.temperature}, max_tokens={agent_model_config.max_tokens}[/dim]", justify="center")
         return ChatOpenAI(
             model=model_name,
-            temperature=0.7,
+            temperature=agent_model_config.temperature,
+            max_tokens=agent_model_config.max_tokens,
         )
 
     # Check Anthropic
@@ -114,10 +135,11 @@ def create_model():
         model_name = os.environ.get(
             "ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"
         )
-        console.print(f"[dim]Using Anthropic model: {model_name}[/dim]")
+        console.print(f"[dim]Using Anthropic model: {model_name}[/dim]", justify="center")
+        console.print(f"[dim]  max_tokens={agent_model_config.max_tokens}[/dim]", justify="center")
         return ChatAnthropic(
             model_name=model_name,
-            max_tokens=20000,
+            max_tokens=agent_model_config.max_tokens,
         )
 
     # No API key found

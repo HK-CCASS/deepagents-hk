@@ -5,12 +5,12 @@ import asyncio
 import sys
 from pathlib import Path
 
-from cli.agent import create_agent_with_config, list_agents, reset_agent
-from cli.commands import execute_bash_command, handle_command
-from cli.config import COLORS, HKEX_AGENT_ASCII, SessionState, console, create_model
-from cli.execution import execute_task
-from cli.input import create_prompt_session
-from cli.tools import (
+from .agent import create_agent_with_config, list_agents, reset_agent
+from .commands import execute_bash_command, handle_command
+from .config import COLORS, HKEX_AGENT_ASCII, SessionState, console, create_model
+from .execution import execute_task
+from .input import create_prompt_session
+from .tools import (
     analyze_pdf_structure,
     download_announcement_pdf,
     extract_pdf_content,
@@ -21,7 +21,7 @@ from cli.tools import (
     get_stock_info,
     search_hkex_announcements,
 )
-from cli.ui import TokenTracker, show_help
+from .ui import TokenTracker, show_help
 
 
 def check_cli_dependencies():
@@ -177,8 +177,8 @@ async def main(assistant_id: str, session_state):
     agent = create_agent_with_config(model, assistant_id, tools)
 
     # Calculate baseline token count for accurate token tracking
-    from agents.main_agent import get_system_prompt
-    from cli.token_utils import calculate_baseline_tokens
+    from src.agents.main_agent import get_system_prompt
+    from .token_utils import calculate_baseline_tokens
 
     agent_dir = Path.home() / ".hkex-agent" / assistant_id
     system_prompt = get_system_prompt()

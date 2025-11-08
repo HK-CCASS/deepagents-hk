@@ -5,8 +5,8 @@ from pathlib import Path
 
 from langgraph.checkpoint.memory import InMemorySaver
 
-from cli.config import COLORS, HKEX_AGENT_ASCII, console
-from cli.ui import TokenTracker, show_interactive_help
+from .config import COLORS, HKEX_AGENT_ASCII, console
+from .ui import TokenTracker, show_interactive_help
 
 
 def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bool:

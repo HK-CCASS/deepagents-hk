@@ -5,7 +5,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from services.hkex_api import HKEXAPIService
+from src.services.hkex_api import HKEXAPIService
 
 # Initialize service instance
 _hkex_service = HKEXAPIService()

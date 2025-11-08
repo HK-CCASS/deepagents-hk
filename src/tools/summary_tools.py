@@ -8,7 +8,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from services.pdf_parser import format_date_for_filename
+from src.services.pdf_parser import format_date_for_filename
 
 
 def sanitize_filename_for_md(filename: str, max_length: int = 200) -> str:

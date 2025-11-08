@@ -12,10 +12,10 @@ from rich import box
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from cli.config import COLORS, console
-from cli.file_ops import FileOpTracker, build_approval_preview
-from cli.input import parse_file_mentions
-from cli.ui import (
+from .config import COLORS, console
+from .file_ops import FileOpTracker, build_approval_preview
+from .input import parse_file_mentions
+from .ui import (
     TokenTracker,
     format_tool_display,
     format_tool_message_content,

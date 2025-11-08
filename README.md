@@ -34,13 +34,44 @@ poetry install
 创建 `.env` 文件并配置必要的环境变量：
 
 ```bash
-# API Keys
-ANTHROPIC_API_KEY=your_anthropic_api_key
-TAVILY_API_KEY=your_tavily_api_key  # 用于网络搜索功能
+# ========== LLM Provider API Keys ==========
+# 优先级: SiliconFlow > OpenAI > Anthropic
 
-# 可选：其他 LLM Provider API Keys
+# SiliconFlow (推荐 - 成本优化)
+SILICONFLOW_API_KEY=your_siliconflow_api_key
+SILICONFLOW_MODEL=deepseek-ai/DeepSeek-V3.1-Terminus  # 主Agent模型
+SILICONFLOW_PDF_MODEL=Qwen/Qwen2.5-7B-Instruct       # PDF分析子Agent
+SILICONFLOW_REPORT_MODEL=Qwen/Qwen2.5-72B-Instruct   # 报告生成子Agent
+
+# OpenAI
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o  # 可选，默认gpt-5-mini
+
+# Anthropic (Claude)
+ANTHROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # 可选
+
+# ========== 模型参数 ==========
+SILICONFLOW_TEMPERATURE=0.7           # 温度 (0.0-1.0)
+SILICONFLOW_MAX_TOKENS=20000          # 最大token数
+SILICONFLOW_TOP_P=0.9                 # Top-p采样 (可选)
+SILICONFLOW_FREQUENCY_PENALTY=0.0     # 频率惩罚 (可选)
+SILICONFLOW_PRESENCE_PENALTY=0.0      # 存在惩罚 (可选)
+SILICONFLOW_API_TIMEOUT=60            # API超时(秒)
+SILICONFLOW_API_RETRY=3               # 重试次数
+
+# 子Agent独立温度配置 (可选)
+SILICONFLOW_PDF_TEMPERATURE=0.5       # PDF分析温度
+SILICONFLOW_REPORT_TEMPERATURE=0.7    # 报告生成温度
+
+# ========== UI配置 ==========
+HKEX_ASCII_FONT=slant                 # ASCII横幅字体 (571种可选)
+
+# ========== 其他功能 ==========
+TAVILY_API_KEY=your_tavily_api_key    # 网络搜索功能
 ```
+
+详细配置说明请参考 `.env.example` 文件。
 
 ## 快速开始
 
@@ -160,30 +191,47 @@ Deep Agents 内置 `write_todos` 工具，使代理能够将复杂任务分解�
 
 ```
 deepagents-hk/
-├── src/
-│   ├── agents/           # 代理核心逻辑
-│   │   ├── main_agent.py # 主代理
-│   │   └── subagents.py  # 子代理定义
-│   ├── api/              # API 接口
-│   │   └── client.py     # 客户端
-│   ├── cli/              # 命令行工具
-│   │   ├── commands.py   # CLI 命令
-│   │   └── main.py       # 主入口
-│   ├── services/         # 业务服务
-│   │   ├── hkex_api.py   # 港交所 API
-│   │   └── pdf_parser.py # PDF 解析服务
-│   ├── tools/            # 工具集合
-│   │   ├── hkex_tools.py # 港股专用工具
-│   │   └── pdf_tools.py  # PDF 处理工具
-│   └── prompts/          # 提示词模板
+├── libs/
+│   ├── deepagents/          # DeepAgents框架核心
+│   │   ├── graph.py         # Agent图构建
+│   │   ├── backends/        # 存储后端
+│   │   └── middleware/      # 中间件
+│   └── deepagents-cli/      # DeepAgents CLI工具
+├── src/                     # HKEX应用代码 (作为src包)
+│   ├── agents/              # 代理核心逻辑
+│   │   ├── main_agent.py    # 主代理
+│   │   └── subagents.py     # 子代理定义
+│   ├── api/                 # API 接口
+│   │   └── client.py        # 客户端
+│   ├── cli/                 # 命令行工具 (src.cli包)
+│   │   ├── config.py        # 配置和模型创建
+│   │   ├── main.py          # 主入口
+│   │   └── ...
+│   ├── config/              # 配置模块
+│   │   └── agent_config.py  # Agent模型配置
+│   ├── services/            # 业务服务
+│   │   ├── hkex_api.py      # 港交所 API
+│   │   └── pdf_parser.py    # PDF 解析服务
+│   ├── tools/               # 工具集合
+│   │   ├── hkex_tools.py    # 港股专用工具
+│   │   ├── pdf_tools.py     # PDF 处理工具
+│   │   └── summary_tools.py # 摘要工具
+│   └── prompts/             # 提示词模板
 │       ├── main_system_prompt.md
 │       └── pdf_analyzer_prompt.md
-├── pdf_cache/            # PDF 缓存目录 (已 gitignore)
-├── md/                   # 摘要存储目录 (已 gitignore)
-├── tests/                # 测试文件
-├── docs/                 # 项目文档
-└── pyproject.toml        # 项目配置
+├── pdf_cache/               # PDF 缓存目录 (已 gitignore)
+├── md/                      # 摘要存储目录 (已 gitignore)
+├── docs/                    # 项目文档
+├── .env                     # 环境变量配置
+├── pyproject.toml           # 统一项目配置
+└── README.md                # 项目说明
 ```
+
+**重要说明**：
+- 项目已统一到单一 `pyproject.toml` 配置
+- `src` 目录作为完整的Python包，所有模块使用 `from src.xxx` 导入
+- `hkex` 命令entry point: `src.cli.main:cli_main`
+- 支持通过环境变量配置不同LLM模型和参数
 
 ## 开发指南
 

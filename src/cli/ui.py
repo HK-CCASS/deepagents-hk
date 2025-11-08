@@ -11,8 +11,8 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.text import Text
 
-from cli.config import COLORS, COMMANDS, HKEX_AGENT_ASCII, MAX_ARG_LENGTH, console
-from cli.file_ops import FileOperationRecord
+from .config import COLORS, COMMANDS, HKEX_AGENT_ASCII, MAX_ARG_LENGTH, console
+from .file_ops import FileOperationRecord
 
 
 def truncate_value(value: str, max_length: int = MAX_ARG_LENGTH) -> str:

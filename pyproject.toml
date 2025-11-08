@@ -9,13 +9,23 @@ dependencies = [
     "langchain-anthropic>=1.0.0,<2.0.0",
     "langchain>=1.0.2,<2.0.0",
     "langchain-core>=1.0.0,<2.0.0",
+    "langchain-openai>=0.1.0",
     "wcmatch",
     "tavily>=1.1.0",
     "research-agent>=0.0.2",
     "clibuilder>=0.1.7",
     "agents>=1.4.0",
+    "pyfiglet>=1.0.4",
+    "httpx",
+    "pdfplumber>=0.11.0",
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.52",
+    "python-dotenv",
 ]
 
+
+[project.scripts]
+hkex = "src.cli.main:cli_main"
 
 [project.urls]
 Homepage = "https://docs.langchain.com/oss/python/deepagents/overview"
@@ -47,12 +57,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 [tool.setuptools.packages.find]
-where = ["libs"]
-include = ["deepagents*"]
-exclude = ["deepagents.tests*", "deepagents.tests.*", "tests*", "tests.*"]
-
-[tool.setuptools.package-dir]
-"" = "libs"
+where = ["libs", "."]
+include = ["deepagents*", "src", "src.*"]
+exclude = ["deepagents.tests*", "deepagents.tests.*", "tests*", "tests.*", "*.egg-info*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed", "*.md"]
@@ -110,5 +117,4 @@ warn_return_any = false
 [tool.uv.workspace]
 members = [
     "libs/deepagents-cli",
-    "src",
 ]

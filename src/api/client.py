@@ -7,8 +7,8 @@ from typing import Any, AsyncIterator
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
-from agents.main_agent import create_hkex_agent
-from cli.config import create_model
+from src.agents.main_agent import create_hkex_agent
+from src.cli.config import create_model
 
 
 class HKEXAgentClient:
@@ -71,7 +71,7 @@ class HKEXAgentClient:
         Returns:
             Dictionary containing search results.
         """
-        from tools.hkex_tools import search_hkex_announcements
+        from src.tools.hkex_tools import search_hkex_announcements
 
         return search_hkex_announcements.invoke(
             {
@@ -106,7 +106,7 @@ class HKEXAgentClient:
         Returns:
             Dictionary containing search results.
         """
-        from tools.hkex_tools import search_hkex_announcements
+        from src.tools.hkex_tools import search_hkex_announcements
 
         return await search_hkex_announcements.ainvoke(
             {

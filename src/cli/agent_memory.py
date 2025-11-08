@@ -3,7 +3,7 @@
 from collections.abc import Awaitable, Callable
 
 from deepagents.backends.protocol import BackendProtocol
-from prompts.prompts import get_longterm_memory_prompt
+from src.prompts.prompts import get_longterm_memory_prompt
 from langchain.agents.middleware.types import (
     AgentMiddleware,
     AgentState,
