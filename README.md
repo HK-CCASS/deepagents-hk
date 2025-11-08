@@ -1,35 +1,71 @@
-# 🧠🤖Deep Agents
+# 🧠🤖 Deep Agents - HKEX 港股智能分析系统
 
-Using an LLM to call tools in a loop is the simplest form of an agent. 
-This architecture, however, can yield agents that are “shallow” and fail to plan and act over longer, more complex tasks. 
+本项目是基于 Deep Agents 框架开发的港股交易数据分析智能代理系统，专门用于处理港交所公告、PDF 文档解析和智能摘要生成。
 
-Applications like “Deep Research”, "Manus", and “Claude Code” have gotten around this limitation by implementing a combination of four things:
-a **planning tool**, **sub agents**, access to a **file system**, and a **detailed prompt**.
+## 项目概述
+
+Deep Agents 采用 LLM 循环调用工具的架构，通过实现**规划工具**、**子代理**、**文件系统**和**详细提示词**四大核心组件，解决了传统代理在复杂任务中"浅层处理"的问题。
+
+本项目专门针对港股市场数据分析进行了优化，主要功能包括：
+- 📄 **PDF 公告解析**：智能解析港交所 PDF 公告文件
+- 🔍 **内容摘要生成**：自动生成关键信息摘要
+- 📊 **结构化数据提取**：从非结构化文档中提取结构化数据
+- 💾 **缓存管理**：智能缓存已处理的文档和摘要
 
 <img src="deep_agents.png" alt="deep agent" width="600"/>
 
-`deepagents` is a Python package that implements these in a general purpose way so that you can easily create a Deep Agent for your application. For a full overview and quickstart of `deepagents`, the best resource is our [docs](https://docs.langchain.com/oss/python/deepagents/overview).
+**技术致谢：本项目主要灵感来源于 Claude Code，旨在探索其通用化能力并进行专门化定制。**
 
-**Acknowledgements: This project was primarily inspired by Claude Code, and initially was largely an attempt to see what made Claude Code general purpose, and make it even more so.**
-
-## Installation
+## 安装
 
 ```bash
-# pip
-pip install deepagents
+# 使用 uv (推荐)
+uv sync
 
-# uv
-uv add deepagents
+# 或使用 pip
+pip install -r requirements.txt
 
-# poetry
-poetry add deepagents
+# 或使用 poetry
+poetry install
 ```
 
-## Usage
+## 环境配置
 
-(To run the example below, you will need to `pip install tavily-python`).
+创建 `.env` 文件并配置必要的环境变量：
 
-Make sure to set `TAVILY_API_KEY` in your environment. You can generate one [here](https://www.tavily.com/).
+```bash
+# API Keys
+ANTHROPIC_API_KEY=your_anthropic_api_key
+TAVILY_API_KEY=your_tavily_api_key  # 用于网络搜索功能
+
+# 可选：其他 LLM Provider API Keys
+OPENAI_API_KEY=your_openai_api_key
+```
+
+## 快速开始
+
+### 港股公告分析示例
+
+```python
+import os
+from hkex_agent import HKEXAnalyzer
+
+# 初始化分析器
+analyzer = HKEXAnalyzer()
+
+# 分析 PDF 公告
+result = analyzer.analyze_announcement("path/to/hkex_announcement.pdf")
+
+print("摘要:", result.summary)
+print("关键数据:", result.key_data)
+print("市场影响:", result.market_impact)
+```
+
+### 基础 Deep Agents 使用
+
+(运行以下示例需要 `pip install tavily-python`)
+
+确保在环境变量中设置了 `TAVILY_API_KEY`。你可以 [在这里](https://www.tavily.com/) 生成一个。
 
 ```python
 import os
@@ -80,26 +116,125 @@ See [examples/research/research_agent.py](examples/research/research_agent.py) f
 The agent created with `create_deep_agent` is just a LangGraph graph - so you can interact with it (streaming, human-in-the-loop, memory, studio)
 in the same way you would any LangGraph agent.
 
-## Core Capabilities
-**Planning & Task Decomposition**
+## 核心功能
 
- Deep Agents include a built-in `write_todos` tool that enables agents to break down complex tasks into discrete steps, track progress, and adapt plans as new information emerges.
+**📋 规划与任务分解**
 
-**Context Management**
+Deep Agents 内置 `write_todos` 工具，使代理能够将复杂任务分解为离散步骤，跟踪进度，并根据新信息调整计划。
 
- File system tools (`ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`) allow agents to offload large context to memory, preventing context window overflow and enabling work with variable-length tool results.
+**🗂️ 上下文管理**
 
-**Subagent Spawning**
+文件系统工具（`ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`）允许代理将大型上下文卸载到内存，防止上下文窗口溢出，并能够处理可变长度的工具结果。
 
- A built-in `task` tool enables agents to spawn specialized subagents for context isolation. This keeps the main agent’s context clean while still going deep on specific subtasks.
+**🔄 子代理生成**
 
-**Long-term Memory**
+内置 `task` 工具使代理能够生成专门的子代理进行上下文隔离。这保持了主代理上下文的清洁，同时仍能深入处理特定子任务。
 
- Extend agents with persistent memory across threads using LangGraph’s Store. Agents can save and retrieve information from previous conversations.
+**💾 长期记忆**
 
-## Customizing Deep Agents
+使用 LangGraph 的 Store 扩展跨线程的持久记忆。代理可以保存和检索之前对话中的信息。
 
-There are several parameters you can pass to `create_deep_agent` to create your own custom deep agent.
+## 港股专用功能
+
+**📄 PDF 解析引擎**
+- 智能识别港交所公告格式
+- 提取财务数据、交易信息等关键内容
+- 支持繁体中文和英文文档
+
+**🔍 智能摘要生成**
+- 自动识别公告类型和重要性
+- 生成结构化摘要和市场影响分析
+- 支持自定义摘要模板
+
+**📊 数据提取与结构化**
+- 财务指标自动提取
+- 公司行动信息识别
+- 市场事件分类标注
+
+**⚡ 缓存优化**
+- PDF 文档缓存机制
+- 摘要结果持久化存储
+- 增量更新支持
+
+## 项目结构
+
+```
+deepagents-hk/
+├── src/
+│   ├── agents/           # 代理核心逻辑
+│   │   ├── main_agent.py # 主代理
+│   │   └── subagents.py  # 子代理定义
+│   ├── api/              # API 接口
+│   │   └── client.py     # 客户端
+│   ├── cli/              # 命令行工具
+│   │   ├── commands.py   # CLI 命令
+│   │   └── main.py       # 主入口
+│   ├── services/         # 业务服务
+│   │   ├── hkex_api.py   # 港交所 API
+│   │   └── pdf_parser.py # PDF 解析服务
+│   ├── tools/            # 工具集合
+│   │   ├── hkex_tools.py # 港股专用工具
+│   │   └── pdf_tools.py  # PDF 处理工具
+│   └── prompts/          # 提示词模板
+│       ├── main_system_prompt.md
+│       └── pdf_analyzer_prompt.md
+├── pdf_cache/            # PDF 缓存目录 (已 gitignore)
+├── md/                   # 摘要存储目录 (已 gitignore)
+├── tests/                # 测试文件
+├── docs/                 # 项目文档
+└── pyproject.toml        # 项目配置
+```
+
+## 开发指南
+
+### 环境设置
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd deepagents-hk
+
+# 安装依赖
+uv sync
+
+# 激活虚拟环境
+source .venv/bin/activate  # Linux/Mac
+# 或
+.venv\Scripts\activate     # Windows
+```
+
+### 运行测试
+
+```bash
+# 运行所有测试
+pytest
+
+# 运行特定测试
+pytest tests/test_pdf_parser.py
+
+# 生成覆盖率报告
+pytest --cov=src tests/
+```
+
+### 代码规范
+
+本项目使用以下工具确保代码质量：
+
+- **Ruff**: 代码检查和格式化
+- **MyPy**: 类型检查
+- **Black**: 代码格式化
+
+```bash
+# 运行代码检查
+ruff check src/
+mypy src/
+
+# 格式化代码
+ruff format src/
+black src/
+```
+
+## 自定义 Deep Agents
 
 ### `model`
 

@@ -12,6 +12,8 @@ dependencies = [
     "wcmatch",
     "tavily>=1.1.0",
     "research-agent>=0.0.2",
+    "clibuilder>=0.1.7",
+    "agents>=1.4.0",
 ]
 
 
@@ -108,5 +110,5 @@ warn_return_any = false
 [tool.uv.workspace]
 members = [
     "libs/deepagents-cli",
-    "src/hkex_agent",
+    "src",
 ]

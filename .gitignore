@@ -213,3 +213,7 @@ __marimo__/
 .claude
 
 .idea
+
+# PDF and MD summary directories
+pdf_cache/
+md/
