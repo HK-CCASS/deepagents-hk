@@ -199,6 +199,48 @@ class SubAgentModelConfig:
         }
 
 
+# 模型上下文窗口限制配置（单位：tokens）
+MODEL_CONTEXT_LIMITS = {
+    # SiliconFlow 模型
+    "deepseek-chat": 170000,  # DeepSeek-V3
+    "deepseek-ai/DeepSeek-V3.1-Terminus": 170000,  # DeepSeek-V3.1
+    "deepseek-reasoner": 170000,  # DeepSeek-R1
+    "Qwen/Qwen2.5-7B-Instruct": 32768,  # Qwen 7B
+    "Qwen/Qwen2.5-32B-Instruct": 131072,  # Qwen 32B
+    "Qwen/Qwen2.5-72B-Instruct": 131072,  # Qwen 72B
+    "internlm/internlm2_5-7b-chat": 32768,  # InternLM 7B
+    
+    # OpenAI 模型
+    "gpt-5-mini": 128000,  # GPT-5 Mini
+    "gpt-5": 128000,  # GPT-5
+    "gpt-4o": 128000,  # GPT-4o
+    "gpt-4.1": 128000,  # GPT-4.1
+    "gpt-4-turbo": 128000,  # GPT-4 Turbo
+    "gpt-3.5-turbo": 16385,  # GPT-3.5 Turbo
+    
+    # Anthropic Claude 模型
+    "claude-sonnet-4-5-20250929": 200000,  # Claude Sonnet 4.5
+    "claude-sonnet-4-20250514": 200000,  # Claude Sonnet 4
+    "claude-opus-4": 200000,  # Claude Opus 4
+    "claude-haiku-4": 200000,  # Claude Haiku 4
+    
+    # 默认值（如果模型不在列表中）
+    "default": 128000,
+}
+
+
+def get_model_context_limit(model_name: str) -> int:
+    """获取模型的上下文窗口限制.
+    
+    Args:
+        model_name: 模型名称
+    
+    Returns:
+        上下文窗口大小（tokens）
+    """
+    return MODEL_CONTEXT_LIMITS.get(model_name, MODEL_CONTEXT_LIMITS["default"])
+
+
 # 全局配置实例
 agent_model_config = SubAgentModelConfig()
 

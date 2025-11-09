@@ -87,7 +87,7 @@ def parse_args():
     return parser.parse_args()
 
 
-async def simple_cli(agent, assistant_id: str | None, session_state, baseline_tokens: int = 0):
+async def simple_cli(agent, assistant_id: str | None, session_state, baseline_tokens: int = 0, model_name: str = "deepseek-chat"):
     """Main CLI loop."""
     console.clear()
     # 如果是Text对象（彩虹模式），直接打印；否则应用primary颜色
@@ -119,7 +119,7 @@ async def simple_cli(agent, assistant_id: str | None, session_state, baseline_to
 
     # Create prompt session and token tracker
     session = create_prompt_session(assistant_id, session_state)
-    token_tracker = TokenTracker()
+    token_tracker = TokenTracker(model_name=model_name)
     token_tracker.set_baseline(baseline_tokens)
 
     while True:
@@ -167,6 +167,17 @@ async def main(assistant_id: str, session_state):
     # Create the model (checks API keys)
     model = create_model()
 
+    # Get model name for token tracking
+    # Try to get model name from environment variables (same order as create_model())
+    if os.environ.get("SILICONFLOW_API_KEY"):
+        model_name = os.environ.get("SILICONFLOW_MODEL", "deepseek-chat")
+    elif os.environ.get("OPENAI_API_KEY"):
+        model_name = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
+    elif os.environ.get("ANTHROPIC_API_KEY"):
+        model_name = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+    else:
+        model_name = "deepseek-chat"  # Default
+
     # ========== Read MCP configuration ==========
     enable_mcp = os.getenv("ENABLE_MCP", "false").lower() == "true"
     if enable_mcp:
@@ -197,7 +208,7 @@ async def main(assistant_id: str, session_state):
     baseline_tokens = calculate_baseline_tokens(model, agent_dir, system_prompt)
 
     try:
-        await simple_cli(agent, assistant_id, session_state, baseline_tokens)
+        await simple_cli(agent, assistant_id, session_state, baseline_tokens, model_name)
     except Exception as e:
         console.print(f"\n[bold red]❌ Error:[/bold red] {e}\n")
 

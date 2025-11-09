@@ -166,10 +166,15 @@ def format_tool_message_content(content: Any) -> str:
 class TokenTracker:
     """Track token usage across the conversation."""
 
-    def __init__(self):
+    def __init__(self, model_name: str = "deepseek-chat"):
         self.baseline_context = 0  # Baseline system context (system + agent.md + tools)
         self.current_context = 0  # Total context including messages
         self.last_output = 0
+        self.model_name = model_name
+        
+        # Get context limit for this model
+        from src.config.agent_config import get_model_context_limit
+        self.context_limit = get_model_context_limit(model_name)
 
     def set_baseline(self, tokens: int):
         """Set the baseline context token count.
@@ -192,14 +197,30 @@ class TokenTracker:
         self.last_output = output_tokens
 
     def display_last(self):
-        """Display current context size after this turn."""
+        """Display current context size after this turn with percentage."""
         if self.last_output and self.last_output >= 1000:
             console.print(f"  Generated: {self.last_output:,} tokens", style="dim")
+        
         if self.current_context:
-            console.print(f"  Current context: {self.current_context:,} tokens", style="dim")
+            usage_percent = (self.current_context / self.context_limit) * 100 if self.context_limit > 0 else 0
+            
+            # Color based on usage
+            if usage_percent < 50:
+                style = "dim green"
+            elif usage_percent < 80:
+                style = "dim yellow"
+            else:
+                style = "dim red"
+            
+            console.print(
+                f"  Context: {self.current_context:,} / {self.context_limit:,} ({usage_percent:.1f}%)",
+                style=style
+            )
 
     def display_session(self):
-        """Display current context size."""
+        """Display current context size with progress bar and warnings."""
+        from rich.progress import Progress, BarColumn, TextColumn
+        
         console.print("\n[bold]Token Usage:[/bold]", style=COLORS["primary"])
 
         # Check if we've had any actual API calls yet (current > baseline means we have conversation)
@@ -223,7 +244,52 @@ class TokenTracker:
                 f"  Tools + conversation: {tools_and_conversation:,} tokens", style=COLORS["dim"]
             )
 
-        console.print(f"  Total: {self.current_context:,} tokens", style="bold " + COLORS["dim"])
+        # Calculate usage percentage
+        usage_percent = (self.current_context / self.context_limit) * 100 if self.context_limit > 0 else 0
+        
+        # Determine color based on usage
+        if usage_percent < 50:
+            bar_color = "green"
+            total_style = "bold green"
+        elif usage_percent < 80:
+            bar_color = "yellow"
+            total_style = "bold yellow"
+        else:
+            bar_color = "red"
+            total_style = "bold red"
+        
+        # Display total with context limit
+        console.print(
+            f"  Total: {self.current_context:,} / {self.context_limit:,} tokens ({usage_percent:.1f}%)",
+            style=total_style
+        )
+        
+        # Progress bar
+        progress = Progress(
+            TextColumn("  "),
+            BarColumn(bar_width=40, complete_style=bar_color, finished_style=bar_color),
+            TextColumn("[{task.percentage:>3.0f}%]", style=bar_color),
+            expand=False
+        )
+        with progress:
+            task = progress.add_task("", total=self.context_limit, completed=self.current_context)
+        
+        # Remaining tokens
+        remaining = self.context_limit - self.current_context
+        console.print(
+            f"  Remaining: {remaining:,} tokens ({100 - usage_percent:.1f}%)",
+            style=COLORS["dim"]
+        )
+        
+        # Warning if approaching limit
+        if usage_percent > 80:
+            console.print(
+                "  ⚠️  [yellow]Warning: Approaching context limit![/yellow]"
+            )
+            console.print(
+                "  💡 [dim]Tip: Use /clear to reset conversation or /tokens to view details[/dim]"
+            )
+        
         console.print()
 
 
