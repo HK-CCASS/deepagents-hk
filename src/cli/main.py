@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -166,6 +167,12 @@ async def main(assistant_id: str, session_state):
     # Create the model (checks API keys)
     model = create_model()
 
+    # ========== Read MCP configuration ==========
+    enable_mcp = os.getenv("ENABLE_MCP", "false").lower() == "true"
+    if enable_mcp:
+        console.print(f"[cyan]🔌 MCP 集成已启用[/cyan]")
+    # ============================================
+
     # Create agent with HKEX tools
     tools = [
         search_hkex_announcements,
@@ -179,7 +186,7 @@ async def main(assistant_id: str, session_state):
         generate_summary_markdown,
     ]
 
-    agent = create_agent_with_config(model, assistant_id, tools)
+    agent = await create_agent_with_config(model, assistant_id, tools, enable_mcp=enable_mcp)
 
     # Calculate baseline token count for accurate token tracking
     from src.agents.main_agent import get_system_prompt

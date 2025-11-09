@@ -77,6 +77,10 @@ HKEX_RAINBOW=true                     # 彩虹渐变效果 (true/false)
 
 # ========== 其他功能 ==========
 TAVILY_API_KEY=your_tavily_api_key    # 网络搜索功能
+
+# ========== MCP 集成（可选）==========
+ENABLE_MCP=false                      # 启用 MCP 集成 (true/false)
+MCP_CONFIG_PATH=mcp_config.json       # MCP 配置文件路径（可选）
 ```
 
 详细配置说明请参考 `.env.example` 文件。
@@ -513,24 +517,101 @@ agent = create_agent(
 
 ## 🔌 MCP 集成
 
-`deepagents` 库可以与 MCP 工具集成，使用 [Langchain MCP Adapter library](https://github.com/langchain-ai/langchain-mcp-adapters)。
+本项目支持通过 [Langchain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters) 集成外部 MCP 服务器，扩展 Agent 的功能。
+
+### 配置方式
+
+#### 1. 启用 MCP 集成
+
+在 `.env` 文件中设置：
+
+```bash
+ENABLE_MCP=true                      # 启用 MCP 集成
+MCP_CONFIG_PATH=mcp_config.json      # MCP 配置文件路径（可选）
+```
+
+#### 2. 配置 MCP 服务器
+
+创建 `mcp_config.json` 文件（或使用 `MCP_CONFIG_PATH` 指定的路径）：
+
+```json
+{
+  "mcpServers": {
+    "ccass": {
+      "type": "sse",
+      "url": "http://1.14.239.79:6008/mcp",
+      "description": "CCASS数据分析MCP服务器 - 提供券商持仓、股权集中度、趋势分析等功能",
+      "name": "ccass-mcp-server",
+      "baseUrl": "http://1.14.239.79:6008/mcp",
+      "isActive": true
+    }
+  }
+}
+```
+
+**支持的传输类型**：
+- `sse`: Server-Sent Events
+- `streamable_http`: HTTP 流式传输
+- `stdio`: 标准输入输出（本地进程）
+
+#### 3. 使用 MCP 工具
+
+启动 Agent 后，MCP 工具会自动加载并可用：
+
+```bash
+$ hkex
+🔌 MCP 集成已启用
+✅ 已加载 12 个 MCP 工具
+   - get_broker_rankings_snapshot: 查询特定日期券商持仓排名快照
+   - calculate_ccass_concentration: 计算股权集中度指标
+   - get_broker_portfolio_trends: 分析券商持仓趋势变化
+   ...
+
+> 00700 最近的券商持仓变化趋势
+```
+
+### CCASS MCP 工具示例
+
+集成 CCASS MCP 服务器后，可使用以下功能：
+
+| 工具名称 | 功能描述 |
+|---------|---------|
+| `get_broker_rankings_snapshot` | 查询特定日期券商持仓排名快照 |
+| `get_stock_outstanding` | 查询股票发行量信息 |
+| `calculate_ccass_concentration` | 计算股权集中度指标（HHI、CR5、CR10） |
+| `get_broker_portfolio_trends` | 分析券商持仓趋势变化 |
+| `get_stock_holding_trends` | 分析股票 CCASS 持仓整体趋势 |
+| `detect_anomalies` | 检测异常持仓变化 |
+| `detect_large_reductions` | 检测券商大幅减持行为 |
+| `detect_shooting_positions` | 检测券商射仓行为（全市场） |
+| `detect_corporate_actions` | 检测企业行为（配售、合并、拆股、发行） |
+
+**📖 完整使用示例**：[CCASS MCP 测试指南](docs/CCASS_MCP_TESTING_GUIDE.md)
+
+### Python API 集成
+
+如果需要在 Python 代码中直接使用 MCP 工具：
 
 ```python
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from deepagents import create_deep_agent
+from src.agents.main_agent import create_hkex_agent
+from src.cli.config import create_model
 
 async def main():
-    # Collect MCP tools
-    mcp_client = MultiServerMCPClient(...)
-    mcp_tools = await mcp_client.get_tools()
-
-    # Create agent
-    agent = create_deep_agent(tools=mcp_tools, ....)
-
-    # Stream the agent
+    # 创建模型
+    model = create_model()
+    
+    # 创建 Agent（启用 MCP）
+    agent = await create_hkex_agent(
+        model=model,
+        assistant_id="default",
+        enable_mcp=True
+    )
+    
+    # 使用 Agent
     async for chunk in agent.astream(
-        {"messages": [{"role": "user", "content": "what is langgraph?"}]},
+        {"messages": [{"role": "user", "content": "00700 最近的券商持仓变化"}]},
         stream_mode="values"
     ):
         if "messages" in chunk:

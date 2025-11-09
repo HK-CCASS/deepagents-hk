@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ccass": {
+      "type": "sse",
+      "url": "http://1.14.239.79:6008/mcp",
+      "description": "CCASS数据分析MCP服务器 - 提供券商持仓、股权集中度、趋势分析等功能",
+      "name": "ccass-mcp-server",
+      "baseUrl": "http://1.14.239.79:6008/mcp",
+      "isActive": true
+    }
+  }
+}
+
