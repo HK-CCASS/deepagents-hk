@@ -4,7 +4,7 @@
 graph TB
     %% 用户接口层
     subgraph "用户接口层"
-        CLI["CLI<br/>(命令行接口)"]
+        CLI["CLI<br/>(命令行接口)<br/>+ 上下文监控"]
         API["API Client<br/>(Python API)"]
     end
 
@@ -23,6 +23,7 @@ graph TB
         HKEXTools["HKEX Tools<br/>- search_hkex_announcements<br/>- get_latest_hkex_announcements<br/>- get_stock_info<br/>- get_announcement_categories"]
         PDFTools["PDF Tools<br/>- download_announcement_pdf<br/>- extract_pdf_content<br/>- analyze_pdf_structure<br/>- get_cached_pdf_path"]
         SummaryTools["Summary Tools<br/>- generate_summary_markdown"]
+        MCPTools["MCP Tools<br/>(外部MCP服务器工具)<br/>- 可选集成"]
     end
 
     %% 服务层
@@ -45,12 +46,14 @@ graph TB
         MemoryMW["AgentMemoryMiddleware<br/>(代理记忆中间件)"]
         ShellMW["ResumableShellToolMiddleware<br/>(Shell工具中间件)"]
         SubAgentMW["SubAgentMiddleware<br/>(子代理中间件)"]
+        SummarizationMW["SummarizationMiddleware<br/>(自动摘要中间件)"]
     end
 
     %% 外部服务
     subgraph "外部服务"
         HKEXAPI["HKEX API<br/>(港交所API)"]
         LLM["Language Model<br/>(LLM)"]
+        MCPServers["MCP Servers<br/>(外部MCP服务器)<br/>- CCASS分析<br/>- 其他MCP服务"]
     end
 
     %% 提示词层
@@ -70,10 +73,13 @@ graph TB
     MainAgent --> HKEXTools
     MainAgent --> PDFTools
     MainAgent --> SummaryTools
+    MainAgent --> MCPTools
     
     PDFAnalyzer --> PDFTools
     ReportGen --> HKEXTools
     ReportGen --> PDFTools
+    
+    MCPTools --> MCPServers
     
     HKEXTools --> HKEXService
     PDFTools --> PDFService
@@ -84,7 +90,10 @@ graph TB
     
     MainAgent --> MemoryMW
     MainAgent --> ShellMW
+    MainAgent --> SummarizationMW
     MainAgent --> LLM
+    
+    SummarizationMW --> LLM
     
     MainAgent --> SystemPrompt
     PDFAnalyzer --> SubagentPrompts
@@ -113,11 +122,11 @@ graph TB
 
     class CLI,API userInterface
     class MainAgent,PDFAnalyzer,ReportGen agent
-    class HKEXTools,PDFTools,SummaryTools tool
+    class HKEXTools,PDFTools,SummaryTools,MCPTools tool
     class HKEXService,PDFService service
     class CompositeBackend,PDFCache,Memories,MDBackend,DefaultFS storage
-    class MemoryMW,ShellMW,SubAgentMW middleware
-    class HKEXAPI,LLM external
+    class MemoryMW,ShellMW,SubAgentMW,SummarizationMW middleware
+    class HKEXAPI,LLM,MCPServers external
     class SystemPrompt,SubagentPrompts prompt
 ```
 
@@ -125,6 +134,9 @@ graph TB
 
 ### 1. 用户接口层
 - **CLI**: 命令行接口，提供交互式终端界面
+  - **上下文监控**: 实时显示 Token 使用情况，支持 20+ 模型
+  - **智能颜色预警**: 绿色 (< 50%)、橙色 (50-80%)、红色 (> 80%)
+  - **底部工具栏**: 显示 `Context: 12,345 / 170,000 (7.3%)`
 - **API Client**: Python API客户端，支持程序化调用
 
 ### 2. 代理层
@@ -135,7 +147,12 @@ graph TB
 ### 3. 工具层
 - **HKEX Tools**: 港交所公告搜索和信息获取工具
 - **PDF Tools**: PDF下载、提取和分析工具
+  - **智能截断**: 大文件自动缓存，避免 Token 超限
+  - **原子写入**: 确保缓存文件完整性
 - **Summary Tools**: Markdown摘要生成工具
+- **MCP Tools**: 外部 MCP 服务器工具（可选集成）
+  - 支持 SSE、Streamable HTTP、STDIO 传输协议
+  - 动态加载外部工具（如 CCASS 分析）
 
 ### 4. 服务层
 - **HKEX API Service**: 封装港交所API调用逻辑
@@ -152,10 +169,17 @@ graph TB
 - **AgentMemoryMiddleware**: 加载和注入代理记忆到系统提示词
 - **ResumableShellToolMiddleware**: 可恢复的Shell命令执行中间件
 - **SubAgentMiddleware**: 子代理调用中间件（由DeepAgents框架创建）
+- **SummarizationMiddleware**: 自动摘要中间件
+  - 监控上下文窗口使用率
+  - 超过阈值时自动压缩历史对话
+  - 保留最近消息，确保对话连贯性
 
 ### 7. 外部服务
 - **HKEX API**: 港交所官方API
 - **Language Model**: 大语言模型（LLM）
+- **MCP Servers**: 外部 MCP 服务器
+  - CCASS 分析服务器（券商持仓、股权集中度）
+  - 其他 MCP 服务（可扩展）
 
 ### 8. 提示词层
 - **System Prompts**: 主代理和长期记忆的系统提示词
@@ -176,4 +200,8 @@ graph TB
 - **智能缓存**: PDF文件自动缓存，避免重复下载
 - **记忆持久化**: 代理记忆保存在文件系统中，支持长期对话
 - **路径路由**: Composite Backend根据路径前缀自动路由到不同存储后端
+- **上下文监控**: 实时显示 Token 使用情况，支持 20+ 模型，智能颜色预警
+- **PDF 智能截断**: 大文件自动缓存到磁盘，避免 Token 超限
+- **MCP 集成**: 支持外部 MCP 服务器，动态扩展工具能力
+- **自动摘要**: 超过上下文阈值时自动压缩历史对话
 
