@@ -13,6 +13,7 @@
 - 📊 **结构化数据提取**：从非结构化文档中提取财务数据、交易信息
 - 💾 **智能缓存管理**：PDF 文档和提取内容的持久化存储
 - ⚡ **LLM Token 优化**：大型 PDF 自动保存到缓存，防止 token 溢出
+- 📈 **实时上下文监控**：底部工具栏实时显示上下文使用情况，支持 20+ 模型，颜色预警
 - 🌈 **优雅用户界面**：ASCII 艺术字横幅（571 种字体）+ 彩虹渐变效果
 
 <img src="deep_agents.png" alt="deep agent" width="600"/>
@@ -512,6 +513,123 @@ agent = create_agent(
     ],
 )
 ```
+
+---
+
+## 📈 实时上下文窗口监控
+
+HKEX Agent 提供实时的上下文窗口使用情况监控，帮助用户了解对话历史的 token 消耗，避免超出模型限制。
+
+### 功能特点
+
+#### 1. 底部工具栏实时显示
+
+在每次对话后，底部工具栏自动显示当前上下文使用情况：
+
+```
+auto-accept ON (CTRL+T to toggle) | Context: 13,494 / 170,000 (7.9%)
+```
+
+#### 2. 智能颜色预警
+
+根据使用率自动调整颜色：
+
+- 🟢 **绿色** (< 50%): 正常使用，空间充足
+- 🟡 **橙色** (50-80%): 中度使用，建议关注
+- 🔴 **红色** (> 80%): 接近限制，建议使用 `/clear` 清理
+
+#### 3. 支持多种模型
+
+自动识别并显示不同模型的上下文限制：
+
+| 模型系列 | 上下文窗口 | 示例模型 |
+|---------|-----------|---------|
+| **DeepSeek** | 170,000 tokens | DeepSeek-V3, DeepSeek-V3.1-Terminus |
+| **Qwen** | 32k - 131k tokens | Qwen2.5-7B (32k), Qwen2.5-72B (131k) |
+| **OpenAI** | 16k - 128k tokens | GPT-5 (128k), GPT-3.5 (16k) |
+| **Claude** | 200,000 tokens | Claude Sonnet 4.5, Claude Opus 4 |
+
+#### 4. 详细信息查看
+
+使用 `/tokens` 命令查看详细的 token 使用情况：
+
+```
+Token Usage:
+  Baseline: 12,345 tokens (system + agent.md)
+  Tools + conversation: 1,149 tokens
+  Total: 13,494 / 170,000 tokens (7.9%)
+  [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] [8%]
+  Remaining: 156,506 tokens (92.1%)
+```
+
+当使用率超过 80% 时，会显示警告：
+
+```
+  ⚠️  Warning: Approaching context limit!
+  💡 Tip: Use /clear to reset conversation or /tokens to view details
+```
+
+### 工作原理
+
+#### 上下文窗口机制
+
+上下文窗口是 LLM 模型在单次推理时能够"看到"的最大 token 数量：
+
+1. **输入限制**：系统提示 + 工具定义 + 对话历史 ≤ 模型限制
+2. **超出后果**：API 拒绝请求，返回 `max_prompt_tokens exceeded` 错误
+3. **自动管理**：本项目通过 `SummarizationMiddleware` 自动压缩旧对话
+
+#### 自动总结机制
+
+当对话历史达到 170k tokens 时：
+
+1. 保留最近 6 条消息（最新对话）
+2. 将之前的对话历史**压缩总结**成简短摘要
+3. 用摘要替换旧对话，释放空间
+
+### 使用建议
+
+#### 1. 定期清理
+
+当上下文使用率超过 70% 时，建议使用 `/clear` 命令重置对话：
+
+```bash
+> /clear
+```
+
+#### 2. 利用文件系统
+
+对于大型内容（如年报分析），系统会自动保存到文件，避免占用上下文：
+
+```bash
+> 分析 03800 2024年报
+# 系统自动将完整年报保存到 pdf_cache/，只在上下文中保留摘要
+```
+
+#### 3. 使用子 Agent
+
+对于独立任务，系统会自动创建子 Agent，使用独立的上下文窗口：
+
+```bash
+> 同时分析 00700、00875、03800 三只股票
+# 系统创建 3 个子 Agent，每个都有独立的 170k tokens 空间
+```
+
+### 配置说明
+
+上下文窗口限制在 `src/config/agent_config.py` 中配置：
+
+```python
+MODEL_CONTEXT_LIMITS = {
+    "deepseek-ai/DeepSeek-V3.1-Terminus": 170000,
+    "Qwen/Qwen2.5-7B-Instruct": 32768,
+    "gpt-5": 128000,
+    "claude-sonnet-4-5-20250929": 200000,
+    # ... 更多模型
+}
+```
+
+如果使用自定义模型，可以在此添加配置。
 
 ---
 
