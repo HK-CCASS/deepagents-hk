@@ -39,10 +39,11 @@ def get_system_prompt() -> str:
     return get_main_system_prompt()
 
 
-def create_hkex_agent(
+async def create_hkex_agent(
     model: BaseChatModel,
     assistant_id: str = "default",
     tools: list[Any] | None = None,
+    enable_mcp: bool = False,
 ) -> Any:
     """Create and configure the main HKEX agent.
 
@@ -50,6 +51,7 @@ def create_hkex_agent(
         model: Language model instance.
         assistant_id: Agent identifier (default: "default").
         tools: Additional tools to include (optional).
+        enable_mcp: Enable MCP tools integration (default: False).
 
     Returns:
         Configured HKEX agent instance.
@@ -121,6 +123,41 @@ def create_hkex_agent(
         analyze_pdf_structure,
         generate_summary_markdown,
     ]
+
+    # ========== Load MCP tools if enabled ==========
+    if enable_mcp:
+        try:
+            from langchain_mcp_adapters.client import MultiServerMCPClient
+            import json
+            
+            # 1. Read MCP configuration
+            mcp_config_path = os.getenv("MCP_CONFIG_PATH", "mcp_config.json")
+            with open(mcp_config_path, "r") as f:
+                mcp_config = json.load(f)
+            
+            # 2. Create MCP client (supports SSE type)
+            mcp_client = MultiServerMCPClient(config=mcp_config)
+            
+            # 3. Initialize client
+            await mcp_client.initialize()
+            
+            # 4. Get MCP tools
+            mcp_tools = await mcp_client.get_tools()
+            
+            # 5. Add to tool list
+            hkex_tools.extend(mcp_tools)
+            
+            print(f"✅ 已加载 {len(mcp_tools)} 个 MCP 工具")
+            
+            # 6. Print tool list (for debugging)
+            for tool in mcp_tools:
+                print(f"   - {tool.name}: {tool.description}")
+                
+        except Exception as e:
+            print(f"⚠️  MCP 工具加载失败: {e}")
+            import traceback
+            traceback.print_exc()
+    # ================================================
 
     # Add any additional tools
     if tools:
