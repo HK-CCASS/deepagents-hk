@@ -560,12 +560,11 @@ MCP_CONFIG_PATH=mcp_config.json      # MCP 配置文件路径（可选）
 
 ```bash
 $ hkex
+Using SiliconFlow model: deepseek-ai/DeepSeek-V3.1-Terminus
+  temperature=0.3, max_tokens=65535
 🔌 MCP 集成已启用
-✅ 已加载 12 个 MCP 工具
-   - get_broker_rankings_snapshot: 查询特定日期券商持仓排名快照
-   - calculate_ccass_concentration: 计算股权集中度指标
-   - get_broker_portfolio_trends: 分析券商持仓趋势变化
-   ...
+✅ 已加载 12 个 MCP 工具: get_broker_rankings_snapshot, get_stock_outstanding, 
+   calculate_ccass_concentration, get_broker_portfolio_trends, ...
 
 > 00700 最近的券商持仓变化趋势
 ```
