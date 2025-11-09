@@ -654,6 +654,7 @@ async def execute_task(
 
     if has_responded:
         console.print()
-        # Track token usage (display only via /tokens command)
+        # Track and display token usage after each response
         if token_tracker and (captured_input_tokens or captured_output_tokens):
             token_tracker.add(captured_input_tokens, captured_output_tokens)
+            token_tracker.display_last()  # Display context usage after each turn
