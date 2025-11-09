@@ -95,6 +95,12 @@ hkex
 > 00875 最近的配售公告详情
 ```
 
+**📖 完整使用指南**：[HKEX Agent 使用文档](docs/HKEX_AGENT_USAGE.md)
+- 基础功能与高级用法
+- 常见场景与故障排查
+- 性能优化与最佳实践
+- 4 个详细示例输出
+
 #### Python API
 
 ```python
