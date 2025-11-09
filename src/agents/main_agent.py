@@ -169,11 +169,9 @@ async def create_hkex_agent(
             # 5. Add to tool list
             hkex_tools.extend(mcp_tools)
             
-            print(f"✅ 已加载 {len(mcp_tools)} 个 MCP 工具")
-            
-            # 6. Print tool list (for debugging)
-            for tool in mcp_tools:
-                print(f"   - {tool.name}: {tool.description}")
+            # 6. Print tool list (simplified)
+            tool_names = [tool.name for tool in mcp_tools]
+            print(f"✅ 已加载 {len(mcp_tools)} 个 MCP 工具: {', '.join(tool_names)}")
                 
         except Exception as e:
             print(f"⚠️  MCP 工具加载失败: {e}")
