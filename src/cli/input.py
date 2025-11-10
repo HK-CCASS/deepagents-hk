@@ -158,6 +158,13 @@ def get_bottom_toolbar(
 
         parts.append((base_class, base_msg))
         
+        # Show tool output toggle state
+        parts.append(("", " | "))
+        if session_state.show_tool_outputs:
+            parts.append(("class:toolbar-blue", "tool outputs ON (CTRL+O to toggle)"))
+        else:
+            parts.append(("class:toolbar-dim", "tool outputs off (CTRL+O to toggle)"))
+        
         # Show context usage if available
         if token_tracker_ref:
             tracker = token_tracker_ref.get("tracker")
@@ -257,6 +264,14 @@ def create_prompt_session(assistant_id: str, session_state: SessionState, token_
         session_state.toggle_auto_approve()
         # Force UI refresh to update toolbar
         event.app.invalidate()
+    
+    # Bind Ctrl+O to toggle tool outputs
+    @kb.add("c-o")
+    def _(event):
+        """Toggle tool output visibility."""
+        session_state.toggle_tool_outputs()
+        # Force UI refresh to update toolbar
+        event.app.invalidate()
 
     # Bind regular Enter to submit (intuitive behavior)
     @kb.add("enter")
@@ -324,6 +339,8 @@ def create_prompt_session(assistant_id: str, session_state: SessionState, token_
             "toolbar-orange": "bg:#f59e0b #000000",  # Orange for manual accept
             "toolbar-red": "bg:#ef4444 #ffffff",  # Red for high context usage
             "toolbar-exit": "bg:#2563eb #ffffff",  # Blue for exit hint
+            "toolbar-blue": "bg:#06b6d4 #000000",  # Cyan for tool outputs ON
+            "toolbar-dim": "bg:#6b7280 #000000",  # Gray for tool outputs off
         }
     )
 
