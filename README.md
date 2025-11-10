@@ -110,6 +110,35 @@ hkex
 - 性能优化与最佳实践
 - 4 个详细示例输出
 
+#### CLI 增强功能
+
+```bash
+# 显示 Agent 推理过程
+hkex --show-thinking
+
+# 启用自动批准模式
+hkex --auto-approve
+
+# 组合使用
+hkex --show-thinking --auto-approve
+```
+
+**交互式快捷键**：
+- `Ctrl+T` - 切换自动批准模式
+- `Ctrl+O` - 切换工具输出显示/隐藏
+- `Ctrl+E` - 打开外部编辑器
+- `Ctrl+C` - 中断 Agent 执行
+
+**工具输出可见性**：
+- 默认情况下，工具调用的详细输出是隐藏的，只显示最终结果
+- 按 `Ctrl+O` 可以实时切换工具输出的显示状态
+- 工具输出以 `↳` 符号和淡青色显示，便于区分
+
+**推理过程显示**：
+- 使用 `--show-thinking` 标志可以看到 Agent 的思考过程
+- 推理内容以暗淡样式显示，不干扰正常输出
+- 适合调试和理解 Agent 的决策逻辑
+
 #### Python API
 
 ```python
