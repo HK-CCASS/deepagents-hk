@@ -791,6 +791,52 @@ asyncio.run(main())
 
 ---
 
+## ⚠️ 故障排查与已知问题
+
+### Tool Calling 工具调用错误
+
+**症状**：Agent 在调用工具时报错，例如：
+```
+Error: "write_t配售股票分析</parameter is not a valid tool"
+```
+
+**原因**：
+- DeepSeek-V3.1-Terminus 在 SiliconFlow 平台上的 tool calling 支持存在问题
+- 工具名称和参数在解析时可能被截断或损坏
+- 中文参数可能加剧此问题
+
+**解决方案**：
+
+**选项 1：更换模型**（推荐）
+```bash
+# 修改 .env 文件
+SILICONFLOW_MODEL=Qwen/Qwen2.5-72B-Instruct
+```
+Qwen 系列模型在 SiliconFlow 上的 tool calling 支持更稳定。
+
+**选项 2：使用 DeepSeek 官方 API**
+```bash
+# 修改 .env 文件
+DEEPSEEK_API_KEY=your_api_key
+DEEPSEEK_MODEL=deepseek-chat
+```
+然后修改 `src/config/agent_config.py` 使用 DeepSeek 官方 API endpoint。
+
+**选项 3：切换到 OpenAI**
+```bash
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-4o
+```
+
+**推荐模型列表**（按 Tool Calling 稳定性排序）：
+1. `gpt-4o` (OpenAI) - 最稳定
+2. `claude-sonnet-4-5-20250929` (Anthropic) - 很稳定
+3. `Qwen/Qwen2.5-72B-Instruct` (SiliconFlow) - 稳定
+4. `deepseek-chat` (DeepSeek 官方 API) - 稳定
+5. `DeepSeek-V3.1-Terminus` (SiliconFlow) - ⚠️ 有问题
+
+---
+
 ## 📝 许可证
 
 本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
