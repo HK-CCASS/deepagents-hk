@@ -3,8 +3,13 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Upstream Sync](https://img.shields.io/badge/upstream-synced%202025--11--11-brightgreen.svg)](https://github.com/langchain-ai/deepagents)
 
 基于 Deep Agents 框架开发的港股交易数据分析智能代理系统，专门用于处理港交所公告、PDF 文档解析和智能摘要生成。
+
+**最近更新** (2025-11-11):
+- ✅ 同步上游改进：子代理错误处理优化 + fetch_url 网页抓取工具
+- 📚 详见 [上游合并分析报告](docs/UPSTREAM_MERGE_ANALYSIS.md)
 
 ## ✨ 核心特性
 
