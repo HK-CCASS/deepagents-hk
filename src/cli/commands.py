@@ -58,9 +58,18 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         return True
 
     if cmd == "history":
-        # Note: This is a simple synchronous implementation
-        # Full async implementation would require refactoring the command handler
-        show_conversation_history_sync(agent)
+        # Use asyncio to run async history function
+        import asyncio
+        try:
+            asyncio.run(show_conversation_history_async(agent))
+        except RuntimeError:
+            # If event loop is already running, create a task
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                console.print("[yellow]Cannot display history while agent is processing[/yellow]")
+                console.print("[dim]Please wait for current operation to complete[/dim]")
+            else:
+                asyncio.run(show_conversation_history_async(agent))
         return True
 
     if cmd == "sessions":
@@ -76,8 +85,8 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
     return False
 
 
-def show_conversation_history_sync(agent):
-    """Display conversation history from checkpointer."""
+async def show_conversation_history_async(agent):
+    """Display conversation history from checkpointer (async version)."""
     console.print()
     console.print("[bold cyan]📝 Conversation History[/bold cyan]")
     console.print()
@@ -98,8 +107,10 @@ def show_conversation_history_sync(agent):
         config = {"configurable": {"thread_id": thread_id}}
         
         try:
-            # Get state history (returns iterator of StateSnapshot objects)
-            history = list(agent.get_state_history(config))
+            # Get state history using async method
+            history = []
+            async for state in agent.aget_state_history(config):
+                history.append(state)
             
             if not history:
                 console.print("[yellow]No conversation history found for current thread.[/yellow]")
@@ -126,12 +137,17 @@ def show_conversation_history_sync(agent):
                 # Display last few messages from this checkpoint
                 recent_messages = messages[-3:] if len(messages) > 3 else messages
                 for msg in recent_messages:
-                    role = msg.get("role", getattr(msg, "type", "unknown"))
-                    content = msg.get("content", str(msg))
+                    # Handle both dict and object messages
+                    if hasattr(msg, 'type'):
+                        role = msg.type
+                        content = msg.content
+                    else:
+                        role = msg.get("role", "unknown")
+                        content = msg.get("content", str(msg))
                     
                     # Truncate long messages
-                    if len(content) > 100:
-                        content = content[:100] + "..."
+                    if len(str(content)) > 100:
+                        content = str(content)[:100] + "..."
                     
                     # Color code by role
                     if role in ["user", "human"]:
@@ -153,8 +169,10 @@ def show_conversation_history_sync(agent):
             
         except Exception as e:
             console.print(f"[yellow]Could not retrieve history: {e}[/yellow]")
-            console.print("[dim]History exists but may require async access[/dim]")
+            console.print("[dim]Please try again[/dim]")
             console.print()
+            import traceback
+            traceback.print_exc()
         
     except Exception as e:
         console.print(f"[red]Error reading history: {e}[/red]")
