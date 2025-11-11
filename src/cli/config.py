@@ -84,6 +84,7 @@ COMMANDS = {
     "help": "Show help information",
     "tokens": "Show token usage for current session",
     "history": "View conversation history",
+    "sessions": "List all conversation sessions",
     "quit": "Exit the CLI",
     "exit": "Exit the CLI",
 }

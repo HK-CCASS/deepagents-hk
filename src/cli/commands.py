@@ -63,6 +63,10 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         show_conversation_history_sync(agent)
         return True
 
+    if cmd == "sessions":
+        show_all_sessions(agent)
+        return True
+
     console.print()
     console.print(f"[yellow]Unknown command: /{cmd}[/yellow]")
     console.print("[dim]Type /help for available commands.[/dim]")
@@ -154,6 +158,85 @@ def show_conversation_history_sync(agent):
         
     except Exception as e:
         console.print(f"[red]Error reading history: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        console.print()
+
+
+def show_all_sessions(agent):
+    """Display all conversation sessions/threads."""
+    console.print()
+    console.print("[bold cyan]📚 All Conversation Sessions[/bold cyan]")
+    console.print()
+    
+    try:
+        # Get the checkpointer
+        checkpointer = agent.checkpointer
+        if not checkpointer:
+            console.print("[yellow]No sessions available (checkpointer not configured)[/yellow]")
+            console.print()
+            return
+        
+        # Query database directly to find all threads
+        import sqlite3
+        from pathlib import Path
+        
+        # Get agent directory to find database
+        assistant_id = "default"  # Default value
+        agent_dir = Path.home() / ".hkex-agent" / assistant_id
+        db_path = agent_dir / "checkpoints.db"
+        
+        if not db_path.exists():
+            console.print("[yellow]No sessions found yet.[/yellow]")
+            console.print("[dim]Start a conversation to create a session.[/dim]")
+            console.print()
+            return
+        
+        # Connect to database and query for all threads
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Query to get distinct thread_ids and their checkpoint counts
+        cursor.execute("""
+            SELECT thread_id, COUNT(*) as checkpoint_count, MAX(checkpoint_id) as latest_checkpoint
+            FROM checkpoints
+            GROUP BY thread_id
+            ORDER BY latest_checkpoint DESC
+        """)
+        
+        threads = cursor.fetchall()
+        conn.close()
+        
+        if not threads:
+            console.print("[yellow]No sessions found.[/yellow]")
+            console.print()
+            return
+        
+        console.print(f"[green]Found {len(threads)} session(s)[/green]")
+        console.print()
+        
+        # Get current thread_id
+        import os
+        current_thread = os.environ.get("HKEX_CURRENT_THREAD_ID", "main")
+        
+        # Display each session
+        for thread_id, count, latest in threads:
+            is_current = thread_id == current_thread
+            marker = "→" if is_current else " "
+            style = "bold green" if is_current else "dim"
+            
+            console.print(f"{marker} [bold]{thread_id}[/bold]", style=style)
+            console.print(f"   {count} checkpoints", style=style)
+            if is_current:
+                console.print("   [green](current session)[/green]")
+            console.print()
+        
+        console.print("[dim]💡 Tip: Use /clear to create a new session[/dim]")
+        console.print("[dim]💡 Use /history to view current session's messages[/dim]")
+        console.print()
+        
+    except Exception as e:
+        console.print(f"[red]Error listing sessions: {e}[/red]")
         import traceback
         traceback.print_exc()
         console.print()
