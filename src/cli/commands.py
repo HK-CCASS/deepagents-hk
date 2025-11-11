@@ -73,7 +73,7 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
 
 
 def show_conversation_history_sync(agent):
-    """Display conversation history from checkpointer (synchronous version)."""
+    """Display conversation history from checkpointer."""
     console.print()
     console.print("[bold cyan]📝 Conversation History[/bold cyan]")
     console.print()
@@ -86,32 +86,76 @@ def show_conversation_history_sync(agent):
             console.print()
             return
         
-        # List all threads
+        # Get current thread_id from environment or use default
         import os
-        from pathlib import Path
+        thread_id = os.environ.get("HKEX_CURRENT_THREAD_ID", "main")
         
-        # Get agent directory to find database
-        assistant_id = "default"  # Default value
-        agent_dir = Path.home() / ".hkex-agent" / assistant_id
-        db_path = agent_dir / "checkpoints.db"
+        # Get state history for current thread
+        config = {"configurable": {"thread_id": thread_id}}
         
-        if not db_path.exists():
-            console.print("[yellow]No conversation history found yet.[/yellow]")
-            console.print("[dim]Start a conversation to create history.[/dim]")
+        try:
+            # Get state history (returns iterator of StateSnapshot objects)
+            history = list(agent.get_state_history(config))
+            
+            if not history:
+                console.print("[yellow]No conversation history found for current thread.[/yellow]")
+                console.print(f"[dim]Thread ID: {thread_id}[/dim]")
+                console.print()
+                return
+            
+            console.print(f"[green]Found {len(history)} checkpoints in current thread[/green]")
+            console.print(f"[dim]Thread ID: {thread_id}[/dim]")
             console.print()
-            return
-        
-        # For now, show a simple message
-        # Full implementation would require async context and state retrieval
-        console.print("[green]✓[/green] Conversation history is available")
-        console.print(f"[dim]Database: {db_path}[/dim]")
-        console.print()
-        console.print("[yellow]Note:[/yellow] Full history viewing will be implemented in a future update.")
-        console.print("[dim]Current conversation automatically continues on restart.[/dim]")
-        console.print()
+            
+            # Display history (most recent first)
+            # Limit to last 10 checkpoints to avoid overwhelming output
+            display_limit = 10
+            for idx, state in enumerate(history[:display_limit]):
+                # Extract messages from state
+                messages = state.values.get("messages", [])
+                
+                if not messages:
+                    continue
+                
+                console.print(f"[bold]Checkpoint {idx + 1}[/bold] [dim](ID: {state.config['configurable'].get('checkpoint_id', 'N/A')[:8]}...)[/dim]")
+                
+                # Display last few messages from this checkpoint
+                recent_messages = messages[-3:] if len(messages) > 3 else messages
+                for msg in recent_messages:
+                    role = msg.get("role", getattr(msg, "type", "unknown"))
+                    content = msg.get("content", str(msg))
+                    
+                    # Truncate long messages
+                    if len(content) > 100:
+                        content = content[:100] + "..."
+                    
+                    # Color code by role
+                    if role in ["user", "human"]:
+                        console.print(f"  [cyan]👤 User:[/cyan] {content}")
+                    elif role in ["assistant", "ai"]:
+                        console.print(f"  [green]🤖 Assistant:[/green] {content}")
+                    else:
+                        console.print(f"  [{role}] {content}")
+                
+                console.print()
+            
+            if len(history) > display_limit:
+                console.print(f"[dim]... and {len(history) - display_limit} more checkpoints[/dim]")
+                console.print(f"[dim]Showing most recent {display_limit} checkpoints[/dim]")
+                console.print()
+            
+            console.print("[dim]💡 Tip: Use /clear to start a new conversation thread[/dim]")
+            console.print()
+            
+        except Exception as e:
+            console.print(f"[yellow]Could not retrieve history: {e}[/yellow]")
+            console.print("[dim]History exists but may require async access[/dim]")
+            console.print()
         
     except Exception as e:
         console.print(f"[red]Error reading history: {e}[/red]")
+        import traceback
+        traceback.print_exc()
         console.print()
 
 
