@@ -10,12 +10,25 @@ from .ui import TokenTracker, show_interactive_help
 
 def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bool:
     """Handle slash commands. Returns 'exit' to exit, True if handled, False to pass to agent."""
-    cmd = command.lower().strip().lstrip("/")
+    cmd = command.strip().lstrip("/")
+    
+    # Split command and arguments
+    parts = cmd.split(None, 1)
+    cmd_name = parts[0].lower()
+    cmd_arg = parts[1] if len(parts) > 1 else None
 
-    if cmd in ["quit", "exit", "q"]:
+    if cmd_name in ["quit", "exit", "q"]:
         return "exit"
 
-    if cmd == "clear":
+    if cmd_name == "session":
+        if cmd_arg:
+            switch_session(cmd_arg)
+        else:
+            console.print("[yellow]Usage: /session <thread_id>[/yellow]")
+            console.print("[dim]Tip: Use /sessions to see available sessions[/dim]")
+        return True
+
+    if cmd_name == "clear":
         # Create a new thread_id for fresh conversation
         # Historical data is preserved in database and can be viewed with /history
         new_thread_id = f"main-{int(time.time())}"
@@ -49,24 +62,24 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         console.print()
         return True
 
-    if cmd == "help":
+    if cmd_name == "help":
         show_interactive_help()
         return True
 
-    if cmd == "tokens":
+    if cmd_name == "tokens":
         token_tracker.display_session()
         return True
 
-    if cmd == "history":
+    if cmd_name == "history":
         show_conversation_history_direct(agent)
         return True
 
-    if cmd == "sessions":
+    if cmd_name == "sessions":
         show_all_sessions(agent)
         return True
 
     console.print()
-    console.print(f"[yellow]Unknown command: /{cmd}[/yellow]")
+    console.print(f"[yellow]Unknown command: /{cmd_name}[/yellow]")
     console.print("[dim]Type /help for available commands.[/dim]")
     console.print()
     return True
@@ -188,6 +201,57 @@ def show_conversation_history_direct(agent):
         console.print(f"[red]Error reading history: {e}[/red]")
         import traceback
         traceback.print_exc()
+        console.print()
+
+
+def switch_session(thread_id: str):
+    """Switch to a different conversation session."""
+    console.print()
+    console.print(f"[bold cyan]🔄 Switching to session: {thread_id}[/bold cyan]")
+    console.print()
+    
+    try:
+        import os
+        from pathlib import Path
+        import sqlite3
+        
+        # Get agent directory to find database
+        assistant_id = "default"
+        agent_dir = Path.home() / ".hkex-agent" / assistant_id
+        db_path = agent_dir / "checkpoints.db"
+        
+        if not db_path.exists():
+            console.print("[red]No sessions database found.[/red]")
+            console.print()
+            return
+        
+        # Check if thread exists
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM checkpoints WHERE thread_id = ?", (thread_id,))
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        if count == 0:
+            console.print(f"[yellow]Session '{thread_id}' not found.[/yellow]")
+            console.print("[dim]Use /sessions to see available sessions[/dim]")
+            console.print()
+            return
+        
+        # Set environment variable for next conversation
+        os.environ["HKEX_CURRENT_THREAD_ID"] = thread_id
+        
+        console.print(f"[green]✓ Switched to session: {thread_id}[/green]")
+        console.print(f"[dim]Found {count} checkpoints in this session[/dim]")
+        console.print()
+        console.print("[bold yellow]⚠️  Note:[/bold yellow] To load this session's conversation history,")
+        console.print("please restart the program or the change will take effect from next message.")
+        console.print()
+        console.print("[dim]💡 Tip: Use /history to view session messages[/dim]")
+        console.print()
+        
+    except Exception as e:
+        console.print(f"[red]Error switching session: {e}[/red]")
         console.print()
 
 
