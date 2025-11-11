@@ -58,18 +58,7 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         return True
 
     if cmd == "history":
-        # Use asyncio to run async history function
-        import asyncio
-        try:
-            asyncio.run(show_conversation_history_async(agent))
-        except RuntimeError:
-            # If event loop is already running, create a task
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                console.print("[yellow]Cannot display history while agent is processing[/yellow]")
-                console.print("[dim]Please wait for current operation to complete[/dim]")
-            else:
-                asyncio.run(show_conversation_history_async(agent))
+        show_conversation_history_direct(agent)
         return True
 
     if cmd == "sessions":
@@ -85,8 +74,8 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
     return False
 
 
-async def show_conversation_history_async(agent):
-    """Display conversation history from checkpointer (async version)."""
+def show_conversation_history_direct(agent):
+    """Display conversation history by directly querying database."""
     console.print()
     console.print("[bold cyan]📝 Conversation History[/bold cyan]")
     console.print()
@@ -99,51 +88,80 @@ async def show_conversation_history_async(agent):
             console.print()
             return
         
-        # Get current thread_id from environment or use default
+        # Query database directly
+        import sqlite3
+        import pickle
+        from pathlib import Path
         import os
+        
+        # Get current thread_id
         thread_id = os.environ.get("HKEX_CURRENT_THREAD_ID", "main")
         
-        # Get state history for current thread
-        config = {"configurable": {"thread_id": thread_id}}
+        # Get agent directory to find database
+        assistant_id = "default"
+        agent_dir = Path.home() / ".hkex-agent" / assistant_id
+        db_path = agent_dir / "checkpoints.db"
         
-        try:
-            # Get state history using async method
-            history = []
-            async for state in agent.aget_state_history(config):
-                history.append(state)
-            
-            if not history:
-                console.print("[yellow]No conversation history found for current thread.[/yellow]")
-                console.print(f"[dim]Thread ID: {thread_id}[/dim]")
-                console.print()
-                return
-            
-            console.print(f"[green]Found {len(history)} checkpoints in current thread[/green]")
+        if not db_path.exists():
+            console.print("[yellow]No conversation history found yet.[/yellow]")
             console.print(f"[dim]Thread ID: {thread_id}[/dim]")
             console.print()
-            
-            # Display history (most recent first)
-            # Limit to last 10 checkpoints to avoid overwhelming output
-            display_limit = 10
-            for idx, state in enumerate(history[:display_limit]):
-                # Extract messages from state
-                messages = state.values.get("messages", [])
+            return
+        
+        # Connect to database and query
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Query for this thread's checkpoints
+        cursor.execute("""
+            SELECT checkpoint_id, checkpoint, metadata
+            FROM checkpoints
+            WHERE thread_id = ?
+            ORDER BY checkpoint_id DESC
+            LIMIT 10
+        """, (thread_id,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if not rows:
+            console.print("[yellow]No conversation history found for current thread.[/yellow]")
+            console.print(f"[dim]Thread ID: {thread_id}[/dim]")
+            console.print()
+            return
+        
+        console.print(f"[green]Found {len(rows)} recent checkpoints in current thread[/green]")
+        console.print(f"[dim]Thread ID: {thread_id}[/dim]")
+        console.print()
+        
+        # Display checkpoints
+        for idx, (checkpoint_id, checkpoint_data, metadata) in enumerate(rows):
+            try:
+                # Deserialize checkpoint
+                checkpoint = pickle.loads(checkpoint_data)
+                
+                # Extract messages
+                channel_values = checkpoint.get("channel_values", {})
+                messages = channel_values.get("messages", [])
                 
                 if not messages:
                     continue
                 
-                console.print(f"[bold]Checkpoint {idx + 1}[/bold] [dim](ID: {state.config['configurable'].get('checkpoint_id', 'N/A')[:8]}...)[/dim]")
+                console.print(f"[bold]Checkpoint {idx + 1}[/bold] [dim](ID: {checkpoint_id[:8]}...)[/dim]")
                 
-                # Display last few messages from this checkpoint
+                # Display last few messages
                 recent_messages = messages[-3:] if len(messages) > 3 else messages
                 for msg in recent_messages:
                     # Handle both dict and object messages
                     if hasattr(msg, 'type'):
                         role = msg.type
                         content = msg.content
-                    else:
-                        role = msg.get("role", "unknown")
+                    elif isinstance(msg, dict):
+                        role = msg.get("role", msg.get("type", "unknown"))
                         content = msg.get("content", str(msg))
+                    else:
+                        role = "unknown"
+                        content = str(msg)
                     
                     # Truncate long messages
                     if len(str(content)) > 100:
@@ -158,21 +176,13 @@ async def show_conversation_history_async(agent):
                         console.print(f"  [{role}] {content}")
                 
                 console.print()
-            
-            if len(history) > display_limit:
-                console.print(f"[dim]... and {len(history) - display_limit} more checkpoints[/dim]")
-                console.print(f"[dim]Showing most recent {display_limit} checkpoints[/dim]")
+                
+            except Exception as e:
+                console.print(f"[dim]Checkpoint {idx + 1}: (could not parse)[/dim]")
                 console.print()
-            
-            console.print("[dim]💡 Tip: Use /clear to start a new conversation thread[/dim]")
-            console.print()
-            
-        except Exception as e:
-            console.print(f"[yellow]Could not retrieve history: {e}[/yellow]")
-            console.print("[dim]Please try again[/dim]")
-            console.print()
-            import traceback
-            traceback.print_exc()
+        
+        console.print("[dim]💡 Tip: Use /clear to start a new conversation thread[/dim]")
+        console.print()
         
     except Exception as e:
         console.print(f"[red]Error reading history: {e}[/red]")
