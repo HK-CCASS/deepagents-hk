@@ -80,9 +80,10 @@ HKEX_AGENT_ASCII = get_hkex_banner()
 
 # Interactive commands
 COMMANDS = {
-    "clear": "Clear screen and reset conversation",
+    "clear": "Clear screen and start new conversation",
     "help": "Show help information",
     "tokens": "Show token usage for current session",
+    "history": "View conversation history",
     "quit": "Exit the CLI",
     "exit": "Exit the CLI",
 }

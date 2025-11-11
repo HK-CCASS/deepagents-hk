@@ -1,9 +1,8 @@
 """Command handlers for slash commands and bash execution."""
 
 import subprocess
+import time
 from pathlib import Path
-
-from langgraph.checkpoint.memory import InMemorySaver
 
 from .config import COLORS, HKEX_AGENT_ASCII, console
 from .ui import TokenTracker, show_interactive_help
@@ -17,8 +16,14 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         return "exit"
 
     if cmd == "clear":
-        # Reset agent conversation state
-        agent.checkpointer = InMemorySaver()
+        # Create a new thread_id for fresh conversation
+        # Historical data is preserved in database and can be viewed with /history
+        new_thread_id = f"main-{int(time.time())}"
+        
+        # Store new thread_id for use in next conversation
+        # This will be picked up by execute_task()
+        import os
+        os.environ["HKEX_CURRENT_THREAD_ID"] = new_thread_id
 
         # Reset token tracking to baseline
         token_tracker.reset()
@@ -33,10 +38,13 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
             console.print(HKEX_AGENT_ASCII, style=f"bold {COLORS['primary']}")
         console.print()
         console.print(
-            "... Fresh start! Conversation reset.", style=COLORS["agent"]
+            "... Fresh start! New conversation started.", style=COLORS["agent"]
         )
         console.print(
             f"[dim]Context reset to baseline ({token_tracker.baseline_context:,} tokens)[/dim]"
+        )
+        console.print(
+            "[dim]💡 Tip: Previous conversations are saved. Use /history to view them.[/dim]"
         )
         console.print()
         return True
@@ -49,6 +57,10 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
         token_tracker.display_session()
         return True
 
+    if cmd == "history":
+        show_conversation_history(agent)
+        return True
+
     console.print()
     console.print(f"[yellow]Unknown command: /{cmd}[/yellow]")
     console.print("[dim]Type /help for available commands.[/dim]")
@@ -56,6 +68,49 @@ def handle_command(command: str, agent, token_tracker: TokenTracker) -> str | bo
     return True
 
     return False
+
+
+async def show_conversation_history(agent):
+    """Display conversation history from checkpointer."""
+    console.print()
+    console.print("[bold cyan]📝 Conversation History[/bold cyan]")
+    console.print()
+    
+    try:
+        # Get the checkpointer
+        checkpointer = agent.checkpointer
+        if not checkpointer:
+            console.print("[yellow]No conversation history available (checkpointer not configured)[/yellow]")
+            console.print()
+            return
+        
+        # List all threads
+        import os
+        from pathlib import Path
+        
+        # Get agent directory to find database
+        assistant_id = "default"  # Default value
+        agent_dir = Path.home() / ".hkex-agent" / assistant_id
+        db_path = agent_dir / "checkpoints.db"
+        
+        if not db_path.exists():
+            console.print("[yellow]No conversation history found yet.[/yellow]")
+            console.print("[dim]Start a conversation to create history.[/dim]")
+            console.print()
+            return
+        
+        # For now, show a simple message
+        # Full implementation would require async context and state retrieval
+        console.print("[green]✓[/green] Conversation history is available")
+        console.print(f"[dim]Database: {db_path}[/dim]")
+        console.print()
+        console.print("[yellow]Note:[/yellow] Full history viewing will be implemented in a future update.")
+        console.print("[dim]Current conversation automatically continues on restart.[/dim]")
+        console.print()
+        
+    except Exception as e:
+        console.print(f"[red]Error reading history: {e}[/red]")
+        console.print()
 
 
 def execute_bash_command(command: str) -> bool:

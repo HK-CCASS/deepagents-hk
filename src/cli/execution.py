@@ -223,8 +223,13 @@ async def execute_task(
     else:
         final_input = prompt_text
 
+    # Get thread_id from environment or use default
+    # Allows /clear command to create new conversation threads
+    import os
+    thread_id = os.environ.get("HKEX_CURRENT_THREAD_ID", "main")
+    
     config = {
-        "configurable": {"thread_id": "main"},
+        "configurable": {"thread_id": thread_id},
         "metadata": {"assistant_id": assistant_id} if assistant_id else {},
     }
 
