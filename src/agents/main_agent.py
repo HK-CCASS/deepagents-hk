@@ -264,8 +264,13 @@ async def create_hkex_agent(
 
     # Set up checkpointer for state persistence with SQLite
     # Store checkpoints in agent directory for persistence across sessions
+    # Note: SqliteSaver manages its own connection lifecycle
     db_path = agent_dir / "checkpoints.db"
-    checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{db_path}")
-    agent.checkpointer = checkpointer
+    
+    # Create connection and keep it alive
+    import sqlite3
+    conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    from langgraph.checkpoint.sqlite import SqliteSaver
+    agent.checkpointer = SqliteSaver(conn)
 
     return agent
