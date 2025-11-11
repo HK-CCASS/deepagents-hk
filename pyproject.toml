@@ -22,6 +22,7 @@ dependencies = [
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.52",
     "python-dotenv",
+    "markdownify>=0.13.0",
 ]
 
 
