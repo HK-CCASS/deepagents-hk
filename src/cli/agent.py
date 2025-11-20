@@ -10,7 +10,9 @@ from .config import COLORS, config, console
 
 def list_agents():
     """List all available agents."""
-    agents_dir = Path.home() / ".hkex-agent"
+    from src.config.agent_config import get_agent_dir_name
+    agent_dir_name = get_agent_dir_name()
+    agents_dir = Path.home() / agent_dir_name
 
     if not agents_dir.exists() or not any(agents_dir.iterdir()):
         console.print("[yellow]No agents found.[/yellow]")
@@ -42,7 +44,9 @@ def list_agents():
 
 def reset_agent(agent_name: str, source_agent: str = None):
     """Reset an agent to default or copy from another agent."""
-    agents_dir = Path.home() / ".hkex-agent"
+    from src.config.agent_config import get_agent_dir_name
+    agent_dir_name = get_agent_dir_name()
+    agents_dir = Path.home() / agent_dir_name
     agent_dir = agents_dir / agent_name
 
     if source_agent:
