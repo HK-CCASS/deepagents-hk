@@ -1,12 +1,11 @@
 """Agent management and creation for the CLI."""
 
-import os
 import shutil
 from pathlib import Path
 
 from src.agents.main_agent import create_hkex_agent
-from .config import COLORS, config, console
 from src.prompts.prompts import get_default_agent_md
+from .config import COLORS, config, console
 
 
 def list_agents():
@@ -76,7 +75,7 @@ def reset_agent(agent_name: str, source_agent: str = None):
     console.print(f"Location: {agent_dir}\n", style=COLORS["dim"])
 
 
-async def create_agent_with_config(model, assistant_id: str, tools: list, enable_mcp: bool = False):
+async def create_agent_with_config(model, assistant_id: str, tools: list, enable_mcp: bool = False, enable_skills: bool = True):
     """Create and configure an HKEX agent with the specified model and tools.
 
     Args:
@@ -84,16 +83,35 @@ async def create_agent_with_config(model, assistant_id: str, tools: list, enable
         assistant_id: Agent identifier.
         tools: List of additional tools (optional).
         enable_mcp: Enable MCP tools integration (default: False).
+        enable_skills: Enable Skills system (default: True).
 
     Returns:
         Configured HKEX agent.
     """
+    # Prepare Skills middleware if enabled
+    middlewares = []
+    if enable_skills:
+        from pathlib import Path
+        from src.cli.skills.middleware import SkillsMiddleware
+        
+        # Setup Skills directory
+        agent_dir = Path.home() / ".hkex-agent" / assistant_id
+        skills_dir = agent_dir / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create Skills middleware
+        skills_middleware = SkillsMiddleware(
+            skills_dir=skills_dir,
+            assistant_id=assistant_id,
+        )
+        middlewares.append(skills_middleware)
+    
     agent = await create_hkex_agent(
         model=model,
         assistant_id=assistant_id,
         tools=tools,
         enable_mcp=enable_mcp,
+        middlewares=middlewares if middlewares else None,
     )
-    
-    return agent.with_config(config)
 
+    return agent.with_config(config)
