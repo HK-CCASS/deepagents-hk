@@ -36,14 +36,16 @@ graph TB
     subgraph "存储层 (Backends)"
         CompositeBackend["Composite Backend<br/>(路由管理器)"]
         PDFCache["PDF Cache Backend<br/>(/pdf_cache/)<br/>[Virtual Mode]"]
-        Memories["Memories Backend<br/>(/memories/)<br/>[Virtual Mode]"]
+        Memories["Memories Backend<br/>(/memories/)<br/>[Virtual Mode]<br/>+ 用户级/项目级"]
+        SkillsBackend["Skills Backend<br/>(/skills/)<br/>+ YAML解析<br/>+ 示例技能"]
         MDBackend["MD Backend<br/>(/md/)<br/>[Virtual Mode]"]
         DefaultFS["Default Filesystem<br/>(工作目录)<br/>[Virtual Mode ✓ 沙箱化]"]
     end
 
     %% 中间件层
     subgraph "中间件层 (Middleware)"
-        MemoryMW["AgentMemoryMiddleware<br/>(代理记忆中间件)"]
+        MemoryMW["AgentMemoryMiddleware<br/>(代理记忆中间件)<br/>+ 双范围内存"]
+        SkillsMW["SkillsMiddleware<br/>(技能中间件)<br/>+ 渐进式披露"]
         ShellMW["ResumableShellToolMiddleware<br/>(Shell工具中间件)"]
         SubAgentMW["SubAgentMiddleware<br/>(子代理中间件)"]
         SummarizationMW["SummarizationMiddleware<br/>(自动摘要中间件)"]
@@ -89,6 +91,7 @@ graph TB
     PDFService --> HKEXAPI
     
     MainAgent --> MemoryMW
+    MainAgent --> SkillsMW
     MainAgent --> ShellMW
     MainAgent --> SummarizationMW
     MainAgent --> LLM
@@ -102,10 +105,12 @@ graph TB
     MainAgent --> CompositeBackend
     CompositeBackend --> PDFCache
     CompositeBackend --> Memories
+    CompositeBackend --> SkillsBackend
     CompositeBackend --> MDBackend
     CompositeBackend --> DefaultFS
     
     MemoryMW --> Memories
+    SkillsMW --> SkillsBackend
     
     PDFService --> PDFCache
     SummaryTools --> MDBackend
@@ -124,8 +129,8 @@ graph TB
     class MainAgent,PDFAnalyzer,ReportGen agent
     class HKEXTools,PDFTools,SummaryTools,MCPTools tool
     class HKEXService,PDFService service
-    class CompositeBackend,PDFCache,Memories,MDBackend,DefaultFS storage
-    class MemoryMW,ShellMW,SubAgentMW,SummarizationMW middleware
+    class CompositeBackend,PDFCache,Memories,SkillsBackend,MDBackend,DefaultFS storage
+    class MemoryMW,SkillsMW,ShellMW,SubAgentMW,SummarizationMW middleware
     class HKEXAPI,LLM,MCPServers external
     class SystemPrompt,SubagentPrompts prompt
 ```
@@ -165,14 +170,29 @@ graph TB
 - **Composite Backend**: 复合后端，根据路径前缀路由到不同的存储后端
 - **PDF Cache Backend**: PDF文件缓存存储 (Virtual Mode)
 - **Memories Backend**: 代理长期记忆存储 (Virtual Mode)
+  - **双范围存储** (NEW): 用户级和项目级分离
+  - 用户级: `~/.hkex-agent/{agent}/memories/agent.md`
+  - 项目级: `[project]/.hkex-agent/agent.md`
+- **Skills Backend** (NEW): 技能文件存储
+  - YAML frontmatter + Markdown 格式
+  - 示例技能：hkex-announcement (197行)、ccass-tracking (224行)、financial-metrics (402行)
+  - 支持自定义技能创建
 - **MD Backend**: Markdown摘要文件存储 (Virtual Mode)
-- **Default Filesystem**: 默认文件系统后端 (**NEW: Virtual Mode 沙箱化**)
+- **Default Filesystem**: 默认文件系统后端 (Virtual Mode 沙箱化)
   - 所有路径以 `/` 开头的文件操作被沙箱化到当前工作目录
   - 防止意外写入系统根目录，避免 "Read-only file system" 错误
   - 路径映射: `/file.txt` → `{cwd}/file.txt`
 
 ### 6. 中间件层
 - **AgentMemoryMiddleware**: 加载和注入代理记忆到系统提示词
+  - **双范围内存** (NEW): 用户级 (`~/.hkex-agent/{agent}/memories/agent.md`) 和项目级 (`[project]/.hkex-agent/agent.md`)
+  - 优先级: 项目级 > 用户级
+  - 自动检测项目根目录（.git 或 .hkex-agent）
+- **SkillsMiddleware** (NEW): 技能系统中间件
+  - **渐进式披露**: 先注入技能列表，Agent需要时再读取详情
+  - 解析 YAML frontmatter (name, description)
+  - 支持3个HKEX专用技能：hkex-announcement、ccass-tracking、financial-metrics
+  - CLI命令: `/skills list`, `/skills show <name>`, `/skills search <query>`
 - **ResumableShellToolMiddleware**: 可恢复的Shell命令执行中间件
 - **SubAgentMiddleware**: 子代理调用中间件（由DeepAgents框架创建）
 - **SummarizationMiddleware**: 自动摘要中间件
@@ -203,15 +223,30 @@ graph TB
 
 - **模块化设计**: 清晰的层次分离，便于维护和扩展
 - **子代理架构**: 通过专门的子代理处理特定任务
+- **Skills技能系统** (NEW 2025-11-20):
+  - 可重用的领域知识模块（YAML frontmatter + Markdown）
+  - 渐进式披露：Agent先看列表，需要时读取详情
+  - 3个HKEX专用技能：配售/供股分析、CCASS追踪、财务指标计算
+  - CLI命令：`/skills list`, `/skills show <name>`, `/skills search <query>`
+  - 支持自定义技能创建和分享
+- **双范围内存系统** (NEW 2025-11-20):
+  - 用户级内存：全局偏好和风格（`~/.hkex-agent/{agent}/memories/agent.md`）
+  - 项目级内存：项目特定约定（`[project]/.hkex-agent/agent.md`）
+  - 优先级：项目级 > 用户级
+  - CLI命令：`/memory` 查看内存配置
+- **动态配置** (NEW 2025-11-20):
+  - 环境变量 `HKEX_AGENT_DIR` 自定义Agent目录
+  - 统一的 `get_agent_dir_name()` 配置函数
+  - 消除硬编码路径，提升灵活性
 - **智能缓存**: PDF文件自动缓存，避免重复下载
 - **记忆持久化**: 代理记忆保存在文件系统中，支持长期对话
 - **路径路由**: Composite Backend根据路径前缀自动路由到不同存储后端
-- **文件系统沙箱** (NEW): Virtual Mode 沙箱化，防止意外系统文件操作
+- **文件系统沙箱**: Virtual Mode 沙箱化，防止意外系统文件操作
 - **上下文监控**: 实时显示 Token 使用情况，支持 20+ 模型，智能颜色预警
 - **PDF 智能截断**: 大文件自动缓存到磁盘，避免 Token 超限
 - **MCP 集成**: 支持外部 MCP 服务器，动态扩展工具能力
 - **自动摘要**: 超过上下文阈值时自动压缩历史对话
-- **CLI 增强** (NEW): 
+- **CLI 增强**:
   - `--show-thinking` 标志显示 Agent 推理过程
   - `Ctrl+O` 快捷键切换工具输出可见性
   - 提供更好的调试和理解能力
