@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend
 from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.middleware.resumable_shell import ResumableShellToolMiddleware
+from langchain.agents.middleware.shell_tool import ShellToolMiddleware
 from src.cli.agent_memory import AgentMemoryMiddleware
 from src.prompts.prompts import get_main_system_prompt
 from src.tools.hkex_tools import (
@@ -74,7 +74,7 @@ async def create_hkex_agent(
         agent_md.write_text(get_default_agent_md())
 
     # Set up shell middleware
-    shell_middleware = ResumableShellToolMiddleware(
+    shell_middleware = ShellToolMiddleware(
         workspace_root=os.getcwd(), execution_policy=HostExecutionPolicy()
     )
 
