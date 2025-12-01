@@ -55,16 +55,23 @@ async def chat_websocket(
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """WebSocket endpoint for streaming chat."""
+    import logging
+    logger = logging.getLogger("chat_ws")
+    
     await websocket.accept()
+    logger.info(f"WebSocket accepted for user {user_id}")
     
     try:
         # Get or create user
         user = await crud.get_or_create_user(db, user_id)
+        logger.info(f"User retrieved/created: {user.id}")
         
         # Create agent service
         try:
             agent_service = await get_agent_service(db, user_id)
+            logger.info(f"Agent service created: provider={agent_service.provider}, model={agent_service.model_name}")
         except ValueError as e:
+            logger.error(f"Agent service creation failed: {e}")
             await websocket.send_json({
                 "type": "error",
                 "content": f"配置错误: {str(e)}. 请先设置API密钥。"
@@ -77,6 +84,7 @@ async def chat_websocket(
             data = await websocket.receive_json()
             message = data.get("message", "")
             conversation_id = data.get("conversation_id")
+            logger.info(f"Received message: {message[:50]}... conv_id={conversation_id}")
             
             if not message:
                 continue
@@ -103,6 +111,7 @@ async def chat_websocket(
             })
             
             # Stream response
+            logger.info(f"Starting stream response for message: {message[:30]}...")
             response_parts = []
             try:
                 async for chunk in agent_service.chat_stream(
@@ -110,6 +119,7 @@ async def chat_websocket(
                     thread_id=str(conv.id)
                 ):
                     response_parts.append(chunk)
+                    logger.debug(f"Streaming chunk: {chunk[:50] if chunk else 'empty'}...")
                     await websocket.send_json({
                         "type": "content",
                         "content": chunk
@@ -133,6 +143,7 @@ async def chat_websocket(
                 })
                 
             except Exception as e:
+                logger.error(f"Error generating response: {e}", exc_info=True)
                 await websocket.send_json({
                     "type": "error",
                     "content": f"生成回复时出错: {str(e)}"

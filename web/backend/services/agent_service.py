@@ -1,10 +1,13 @@
-"""Agent service wrapping HKEXAgentClient for web API."""
+"""Agent service wrapping HKEXAgentClient for web API.
 
+Uses importlib for lazy imports to avoid circular import issues.
+"""
+
+import importlib
 import os
 import sys
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent.parent
@@ -12,28 +15,6 @@ sys.path.insert(0, str(project_root))
 
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
-
-# Lazy imports to avoid circular import issues
-_create_hkex_agent = None
-_search_hkex_announcements = None
-
-
-def _get_hkex_agent_func():
-    """Lazy load create_hkex_agent to avoid circular imports."""
-    global _create_hkex_agent
-    if _create_hkex_agent is None:
-        from src.agents.main_agent import create_hkex_agent
-        _create_hkex_agent = create_hkex_agent
-    return _create_hkex_agent
-
-
-def _get_search_func():
-    """Lazy load search_hkex_announcements to avoid circular imports."""
-    global _search_hkex_announcements
-    if _search_hkex_announcements is None:
-        from src.tools.hkex_tools import search_hkex_announcements
-        _search_hkex_announcements = search_hkex_announcements
-    return _search_hkex_announcements
 
 
 class AgentService:
@@ -109,12 +90,14 @@ class AgentService:
             self._model = self._create_model()
         return self._model
     
-    @property
-    def agent(self):
-        """Get or create the HKEX agent."""
+    async def _get_or_create_agent(self):
+        """Get or create the HKEX agent using importlib to avoid circular imports."""
         if self._agent is None:
-            create_hkex_agent = _get_hkex_agent_func()
-            self._agent = create_hkex_agent(
+            # Use importlib for lazy import to avoid circular import
+            main_agent_module = importlib.import_module("src.agents.main_agent")
+            create_hkex_agent = getattr(main_agent_module, "create_hkex_agent")
+            
+            self._agent = await create_hkex_agent(
                 model=self.model,
                 assistant_id="web-agent",
                 tools=None,  # Use default tools
@@ -135,11 +118,13 @@ class AgentService:
         Yields:
             Response chunks as strings
         """
+        agent = await self._get_or_create_agent()
+        
         config = {
             "configurable": {"thread_id": thread_id},
         }
         
-        async for chunk in self.agent.astream(
+        async for chunk in agent.astream(
             {"messages": [HumanMessage(content=message)]},
             config=config,
             stream_mode=["messages"],
@@ -189,7 +174,10 @@ class AgentService:
         Returns:
             Search results dictionary
         """
-        search_func = _get_search_func()
+        # Use importlib for lazy import
+        hkex_tools = importlib.import_module("src.tools.hkex_tools")
+        search_func = getattr(hkex_tools, "search_hkex_announcements")
+        
         return search_func.invoke({
             "stock_code": stock_code,
             "from_date": from_date,
@@ -251,4 +239,3 @@ def decrypt_api_key(encrypted_key: str, secret_key: str | None = None) -> str:
     
     f = Fernet(key)
     return f.decrypt(encrypted_key.encode()).decode()
-

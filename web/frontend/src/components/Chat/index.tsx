@@ -84,6 +84,15 @@ export function Chat() {
           break;
         case 'error':
           console.error('Chat error:', data.content);
+          // Display error message to user
+          const errorMessage: Message = {
+            id: `error-${Date.now()}`,
+            conversationId: currentConversationId || '',
+            role: 'assistant',
+            content: `❌ **错误**: ${data.content}`,
+            createdAt: new Date().toISOString(),
+          };
+          addMessage(errorMessage);
           clearStreamingContent();
           setIsStreaming(false);
           break;
@@ -119,8 +128,14 @@ export function Chat() {
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
+  const hasApiKey = config?.hasApiKey;
+
   const handleSend = useCallback(() => {
-    if (!input.trim() || isStreaming || !ws) return;
+    console.log('handleSend called:', 'input="' + input.trim() + '"', 'isStreaming=' + isStreaming, 'ws=' + !!ws, 'hasApiKey=' + hasApiKey);
+    if (!input.trim() || isStreaming || !ws) {
+      console.log('handleSend blocked: noInput=' + !input.trim() + ' isStreaming=' + isStreaming + ' noWs=' + !ws);
+      return;
+    }
     
     // Add user message
     const userMessage: Message = {
@@ -133,6 +148,7 @@ export function Chat() {
     addMessage(userMessage);
     
     // Send to WebSocket
+    console.log('Sending message via WebSocket:', input.trim());
     ws.send(JSON.stringify({
       message: input.trim(),
       conversation_id: currentConversationId,
@@ -140,7 +156,7 @@ export function Chat() {
     
     setInput('');
     setIsStreaming(true);
-  }, [input, isStreaming, ws, currentConversationId, addMessage, setIsStreaming]);
+  }, [input, isStreaming, ws, currentConversationId, addMessage, setIsStreaming, hasApiKey]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -148,8 +164,6 @@ export function Chat() {
       handleSend();
     }
   };
-
-  const hasApiKey = config?.hasApiKey;
 
   return (
     <main className={styles.chatContainer}>
