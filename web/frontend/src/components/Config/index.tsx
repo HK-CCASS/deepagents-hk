@@ -10,6 +10,8 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  Link,
+  Edit3,
 } from 'lucide-react';
 import { useConfigStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
@@ -31,6 +33,8 @@ export function ConfigPanel() {
 
   const [provider, setProvider] = useState('siliconflow');
   const [modelName, setModelName] = useState('deepseek-chat');
+  const [useCustomModel, setUseCustomModel] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [temperature, setTemperature] = useState(0.7);
@@ -55,11 +59,17 @@ export function ConfigPanel() {
         setConfig(data);
         setProvider(data.provider);
         setModelName(data.modelName);
+        setBaseUrl(data.baseUrl || '');
         setTemperature(data.temperature);
         setMaxTokens(data.maxTokens);
+        // Check if model is not in the predefined list
+        const isCustom = !availableModels.some(
+          m => m.provider === data.provider && m.modelName === data.modelName
+        );
+        setUseCustomModel(isCustom);
       })
       .catch(console.error);
-  }, [userId, setConfig]);
+  }, [userId, setConfig, availableModels]);
 
   // Filter models by provider
   const filteredModels = availableModels.filter((m) => m.provider === provider);
@@ -88,6 +98,7 @@ export function ConfigPanel() {
       const updatedConfig = await configApi.updateConfig(userId, {
         provider,
         modelName,
+        baseUrl: baseUrl || undefined,
         apiKey: apiKey || undefined,
         temperature,
         maxTokens,
@@ -168,19 +179,37 @@ export function ConfigPanel() {
             <label className={styles.label}>
               <Cpu size={16} />
               模型
+              <button
+                className={styles.toggleBtn}
+                onClick={() => setUseCustomModel(!useCustomModel)}
+                title={useCustomModel ? '使用预设模型' : '自定义模型'}
+              >
+                <Edit3 size={14} />
+                {useCustomModel ? '预设' : '自定义'}
+              </button>
             </label>
-            <select
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              className={styles.select}
-            >
-              {filteredModels.map((model) => (
-                <option key={model.modelName} value={model.modelName}>
-                  {model.displayName}
-                </option>
-              ))}
-            </select>
-            {selectedModel && (
+            {useCustomModel ? (
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder="输入模型名称，如: deepseek-ai/DeepSeek-V3"
+                className={styles.textInput}
+              />
+            ) : (
+              <select
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className={styles.select}
+              >
+                {filteredModels.map((model) => (
+                  <option key={model.modelName} value={model.modelName}>
+                    {model.displayName}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedModel && !useCustomModel && (
               <div className={styles.modelInfo}>
                 <span>上下文: {selectedModel.contextLimit.toLocaleString()} tokens</span>
                 {selectedModel.pricePerMillion && (
@@ -188,6 +217,22 @@ export function ConfigPanel() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Base URL (for custom API endpoints) */}
+          <div className={styles.section}>
+            <label className={styles.label}>
+              <Link size={16} />
+              API 地址
+              <span className={styles.optional}>(可选)</span>
+            </label>
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder={provider === 'siliconflow' ? 'https://api.siliconflow.cn/v1' : '留空使用默认地址'}
+              className={styles.textInput}
+            />
           </div>
 
           {/* API Key */}
