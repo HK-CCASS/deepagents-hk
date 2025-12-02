@@ -223,3 +223,6 @@ md/
 港交所原始API接口文档.md
 .DS_Store
 web/frontend/.vite/
+# Frontend dependencies
+web/frontend/node_modules/
+web/backend/__pycache__/
