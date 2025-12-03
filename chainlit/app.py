@@ -375,6 +375,25 @@ async def on_chat_resume(thread: dict):
     config = await config_storage.load_or_default(user_id)
     cl.user_session.set("config", config)
     
+    # ⭐ 从 thread["steps"] 恢复历史消息（关键修复！）
+    message_history = []
+    for step in thread.get("steps", []):
+        step_type = step.get("type")
+        step_output = step.get("output", "")
+        
+        # 跳过空消息和系统消息
+        if not step_output or step_type == "system_message":
+            continue
+            
+        # 用户消息
+        if step_type == "user_message":
+            message_history.append(HumanMessage(content=step_output))
+        # AI 助手消息
+        elif step_type == "assistant_message":
+            message_history.append(AIMessage(content=step_output))
+    
+    cl.user_session.set("message_history", message_history)
+    
     # 创建模型和 Agent
     try:
         model = create_model_from_config(config)
@@ -395,7 +414,8 @@ async def on_chat_resume(thread: dict):
         await cl.ChatSettings(settings_widgets).send()
         
         await cl.Message(
-            content=f"📂 已恢复对话: **{thread.get('name', '未命名对话')}**\n\n继续您的分析..."
+            content=f"📂 已恢复对话: **{thread.get('name', '未命名对话')}**\n\n"
+                    f"✅ 已加载 **{len(message_history)}** 条历史消息，继续您的分析..."
         ).send()
         
     except Exception as e:
@@ -413,6 +433,9 @@ async def on_chat_start():
     # 加载用户配置
     config = await config_storage.load_or_default(user_id)
     cl.user_session.set("config", config)
+    
+    # ⭐ 初始化消息历史（关键：保持对话上下文）
+    cl.user_session.set("message_history", [])
     
     # 初始化设置面板
     settings_widgets = build_settings_widgets(config)
@@ -475,6 +498,13 @@ async def on_message(message: cl.Message):
         ).send()
         return
 
+    # ⭐ 获取并更新消息历史（关键修复！）
+    message_history = cl.user_session.get("message_history", [])
+    
+    # 添加当前用户消息到历史
+    current_message = HumanMessage(content=message.content)
+    message_history.append(current_message)
+
     # 配置
     config = {
         "configurable": {
@@ -491,8 +521,9 @@ async def on_message(message: cl.Message):
         full_response = ""
         tool_calls_info = []
 
+        # ⭐ 关键：传递完整的消息历史，而不是单条消息
         async for event in agent.astream(
-            {"messages": [HumanMessage(content=message.content)]},
+            {"messages": message_history},  # 传递完整历史！
             config=config,
             stream_mode="messages",
         ):
@@ -525,9 +556,14 @@ async def on_message(message: cl.Message):
         if full_response:
             response_msg.content = full_response
             await response_msg.update()
+            # ⭐ 将 AI 响应也添加到历史
+            message_history.append(AIMessage(content=full_response))
         else:
             response_msg.content = "✅ 任务已完成"
             await response_msg.update()
+        
+        # ⭐ 保存更新后的消息历史
+        cl.user_session.set("message_history", message_history)
 
     except Exception as e:
         error_msg = f"❌ **处理出错**\n\n```\n{str(e)}\n```"
