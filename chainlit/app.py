@@ -58,6 +58,14 @@ STORAGE_PATH = project_root / "chainlit_data" / "files"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 STORAGE_PATH.mkdir(parents=True, exist_ok=True)
 
+# ⭐ 自动初始化数据库（确保 users 表等存在）
+from init_db import init_database
+try:
+    init_database()
+    logger.info("数据库初始化完成")
+except Exception as e:
+    logger.warning(f"数据库初始化警告: {e}")
+
 # 创建本地存储客户端
 storage_client = LocalStorageClient(storage_dir=STORAGE_PATH)
 
