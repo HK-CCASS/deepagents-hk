@@ -548,7 +548,12 @@ def get_all_scenes(user_scenes: list = None) -> dict:
 
 
 def build_settings_widgets(config: UserConfig, user_scenes: list = None) -> list:
-    """构建设置面板组件 - 场景模式.
+    """构建设置面板组件 - 三栏布局.
+    
+    分为三部分：
+    1. API/模型 - 选择Provider和模型
+    2. 提示词 - 场景模式和提示词管理
+    3. 参数 - 模型参数调节
     
     Args:
         config: 当前用户配置
@@ -576,34 +581,16 @@ def build_settings_widgets(config: UserConfig, user_scenes: list = None) -> list
     if current_scene not in scene_ids:
         current_scene = 'default'
     
+    # 截取提示词预览
+    prompt_preview = config.system_prompt[:500] + "..." if len(config.system_prompt) > 500 else config.system_prompt
+    
     return [
-        # === 🎭 场景模式（核心）===
-        Select(
-            id="scene",
-            label="🎭 场景模式",
-            description="选择场景 = 参数 + 提示词一键切换（⭐ 自定义场景）",
-            values=scene_ids,
-            initial_value=current_scene,
-            labels=scene_labels,
-        ),
-        TextInput(
-            id="new_scene_name",
-            label="💾 保存为新场景",
-            description="将当前全部配置（参数+提示词）保存为新场景",
-            initial="",
-            placeholder="输入场景名称...",
-        ),
-        Switch(
-            id="delete_scene",
-            label="🗑️ 删除当前场景",
-            description="仅可删除自定义场景（⭐ 开头）",
-            initial=False,
-        ),
-        
-        # === 🔧 API 设置 ===
+        # ═══════════════════════════════════════════
+        # 第一部分：🔧 API/模型
+        # ═══════════════════════════════════════════
         Select(
             id="provider",
-            label="API Provider",
+            label="🔧 API Provider",
             description="选择 AI 模型提供商",
             values=APIProvider.choices(),
             initial_value=config.provider,
@@ -611,29 +598,63 @@ def build_settings_widgets(config: UserConfig, user_scenes: list = None) -> list
         Select(
             id="model",
             label="模型",
-            description="选择模型",
+            description="选择预设模型",
             values=model_options if model_options else ["deepseek-chat"],
             initial_value=config.model if config.model in model_options else (model_options[0] if model_options else "deepseek-chat"),
         ),
         TextInput(
             id="custom_model",
-            label="自定义模型 (可选)",
-            description="填写后优先使用此模型",
+            label="自定义模型",
+            description="填写后优先使用此模型（可选）",
             initial=config.custom_model or "",
             placeholder="例如: Pro/deepseek-ai/DeepSeek-V3",
         ),
         TextInput(
             id="api_key_override",
-            label="API Key (可选)",
-            description="覆盖环境变量中的 API Key",
+            label="API Key",
+            description="覆盖环境变量（可选）",
             initial=config.api_key_override or "",
             placeholder="sk-...",
         ),
         
-        # === 📊 模型参数（场景自动设置，可微调）===
+        # ═══════════════════════════════════════════
+        # 第二部分：📝 提示词
+        # ═══════════════════════════════════════════
+        Select(
+            id="scene",
+            label="📝 提示词场景",
+            description="选择场景自动加载对应提示词和推荐参数",
+            values=scene_ids,
+            initial_value=current_scene,
+            labels=scene_labels,
+        ),
+        TextInput(
+            id="system_prompt_preview",
+            label="当前提示词（预览）",
+            description="切换场景后自动更新，可直接编辑",
+            initial=prompt_preview,
+            placeholder="系统提示词内容...",
+        ),
+        TextInput(
+            id="new_scene_name",
+            label="💾 保存为新场景",
+            description="输入名称保存当前配置（提示词+参数）",
+            initial="",
+            placeholder="场景名称...",
+        ),
+        Switch(
+            id="delete_scene",
+            label="🗑️ 删除当前场景",
+            description="仅可删除自定义场景",
+            initial=False,
+        ),
+        
+        # ═══════════════════════════════════════════
+        # 第三部分：📊 参数
+        # ═══════════════════════════════════════════
         Slider(
             id="temperature",
-            label="Temperature",
+            label="📊 Temperature",
             description="控制输出随机性 (0=确定性, 1=创意性)",
             min=0.0,
             max=1.5,
@@ -657,10 +678,12 @@ def build_settings_widgets(config: UserConfig, user_scenes: list = None) -> list
             initial=config.top_p,
         ),
         
-        # === ⚙️ 系统设置 ===
+        # ═══════════════════════════════════════════
+        # 其他设置
+        # ═══════════════════════════════════════════
         Switch(
             id="enable_mcp",
-            label="启用 MCP 集成",
+            label="⚙️ 启用 MCP 集成",
             description="启用 Model Context Protocol 扩展",
             initial=config.enable_mcp,
         ),
@@ -670,12 +693,10 @@ def build_settings_widgets(config: UserConfig, user_scenes: list = None) -> list
             description="关闭后需手动审批危险操作",
             initial=config.auto_approve,
         ),
-        
-        # === 🔌 测试连接 ===
         Switch(
             id="test_connection",
             label="🔌 测试连接",
-            description="开启后点击确认测试模型连接",
+            description="开启后点击确认测试模型",
             initial=False,
         ),
     ]
@@ -728,6 +749,15 @@ def settings_to_config(settings: dict, current_config: UserConfig, all_scenes: d
             scene=new_scene,
         )
     
+    # 处理提示词（如果用户编辑了预览内容）
+    prompt_preview = settings.get("system_prompt_preview", "")
+    # 如果预览内容和当前配置不同（用户进行了编辑），使用预览内容
+    if prompt_preview and prompt_preview != current_config.system_prompt[:500] + "..." and prompt_preview != current_config.system_prompt:
+        # 用户编辑了提示词
+        new_system_prompt = prompt_preview
+    else:
+        new_system_prompt = current_config.system_prompt
+    
     # 正常更新（未切换场景）
     return UserConfig(
         provider=settings.get("provider", current_config.provider),
@@ -737,7 +767,7 @@ def settings_to_config(settings: dict, current_config: UserConfig, all_scenes: d
         temperature=settings.get("temperature", current_config.temperature),
         max_tokens=max_tokens,
         top_p=settings.get("top_p", current_config.top_p),
-        system_prompt=current_config.system_prompt,
+        system_prompt=new_system_prompt,
         enable_mcp=settings.get("enable_mcp", current_config.enable_mcp),
         auto_approve=settings.get("auto_approve", current_config.auto_approve),
         show_download_links=current_config.show_download_links,
@@ -856,6 +886,13 @@ async def on_settings_update(settings: dict):
             max_tokens = current_config.max_tokens
         top_p = settings.get("top_p", current_config.top_p)
         
+        # 获取提示词（优先使用编辑后的预览内容）
+        prompt_preview = settings.get("system_prompt_preview", "")
+        if prompt_preview and prompt_preview != current_config.system_prompt[:500] + "...":
+            save_prompt = prompt_preview
+        else:
+            save_prompt = current_config.system_prompt
+        
         new_scene = UserScene(
             id=scene_id,
             user_id=user_id,
@@ -864,7 +901,7 @@ async def on_settings_update(settings: dict):
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
-            system_prompt=current_config.system_prompt,  # 保存当前提示词
+            system_prompt=save_prompt,
         )
         
         success = await config_storage.create_preset(user_id, new_scene)
@@ -872,7 +909,7 @@ async def on_settings_update(settings: dict):
             await cl.Message(
                 content=f"✅ **场景已保存**: ⭐ {new_scene_name}\n\n"
                         f"📊 参数: T={temperature}, {max_tokens//1000}K, P={top_p}\n"
-                        f"📝 提示词: {len(current_config.system_prompt)} 字符",
+                        f"📝 提示词: {len(save_prompt)} 字符",
                 author="system",
             ).send()
             
