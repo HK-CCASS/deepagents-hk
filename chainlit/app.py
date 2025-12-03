@@ -49,6 +49,7 @@ from config_models import (
     get_default_config,
     get_models_for_provider,
     get_preset_options,
+    get_preset_display_name,
 )
 from config_storage import get_config_storage, init_config_storage
 import auth_service
@@ -316,6 +317,109 @@ async def get_presets():
     }
 
 
+# ============== 提示词管理 API ==============
+
+PROMPTS_DIR = project_root / "src" / "prompts"
+# 内置提示词（不可删除）
+BUILTIN_PROMPTS = {"main_system_prompt.md", "pdf_analyzer_prompt.md", "report_generator_prompt.md", "longterm_memory_prompt.md", "default_agent_md.md"}
+
+
+@fastapi_app.get("/api/prompts")
+async def list_prompts():
+    """列出所有可用的提示词文件。"""
+    prompts = []
+    if PROMPTS_DIR.exists():
+        for f in PROMPTS_DIR.glob("*.md"):
+            is_builtin = f.name in BUILTIN_PROMPTS
+            prompts.append({
+                "name": f.stem,  # 不带扩展名
+                "filename": f.name,
+                "builtin": is_builtin,
+                "deletable": not is_builtin,
+            })
+    # 按名称排序，内置在前
+    prompts.sort(key=lambda x: (not x["builtin"], x["name"]))
+    return {"prompts": prompts}
+
+
+@fastapi_app.get("/api/prompts/{filename}")
+async def read_prompt(filename: str):
+    """读取指定提示词文件内容。"""
+    # 安全检查：防止路径遍历
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="无效的文件名")
+    
+    file_path = PROMPTS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="提示词不存在")
+    
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        return {
+            "filename": filename,
+            "name": file_path.stem,
+            "content": content,
+            "builtin": filename in BUILTIN_PROMPTS,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取失败: {e}")
+
+
+class PromptSaveRequest(BaseModel):
+    """保存提示词请求。"""
+    filename: str
+    content: str
+
+
+@fastapi_app.post("/api/prompts")
+async def save_prompt(req: PromptSaveRequest):
+    """保存/更新提示词文件。"""
+    filename = req.filename
+    
+    # 安全检查
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="无效的文件名")
+    
+    # 确保是 .md 文件
+    if not filename.endswith(".md"):
+        filename = filename + ".md"
+    
+    file_path = PROMPTS_DIR / filename
+    
+    try:
+        PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(req.content, encoding="utf-8")
+        return {
+            "success": True,
+            "filename": filename,
+            "message": "提示词已保存",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存失败: {e}")
+
+
+@fastapi_app.delete("/api/prompts/{filename}")
+async def delete_prompt(filename: str):
+    """删除提示词文件（仅可删除用户创建的）。"""
+    # 安全检查
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="无效的文件名")
+    
+    # 检查是否为内置提示词
+    if filename in BUILTIN_PROMPTS:
+        raise HTTPException(status_code=403, detail="无法删除内置提示词")
+    
+    file_path = PROMPTS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="提示词不存在")
+    
+    try:
+        file_path.unlink()
+        return {"success": True, "message": "提示词已删除"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {e}")
+
+
 # ============== 用户认证 ==============
 @cl.password_auth_callback
 async def auth_callback(username: str, password: str):
@@ -446,6 +550,24 @@ async def get_all_presets_for_user(user_id: str) -> dict:
     return all_presets
 
 
+def get_available_prompts() -> list:
+    """获取可用的提示词列表."""
+    prompts = []
+    prompts_dir = project_root / "src" / "prompts"
+    if prompts_dir.exists():
+        for f in prompts_dir.glob("*.md"):
+            is_builtin = f.name in {"main_system_prompt.md", "pdf_analyzer_prompt.md", 
+                                    "report_generator_prompt.md", "longterm_memory_prompt.md", 
+                                    "default_agent_md.md"}
+            prompts.append({
+                "name": f.stem,
+                "filename": f.name,
+                "builtin": is_builtin,
+            })
+    prompts.sort(key=lambda x: (not x["builtin"], x["name"]))
+    return prompts
+
+
 def build_settings_widgets(config: UserConfig, user_presets: list = None) -> list:
     """构建设置面板组件.
     
@@ -461,16 +583,38 @@ def build_settings_widgets(config: UserConfig, user_presets: list = None) -> lis
     model_options = [m["id"] for m in models]
     model_labels = {m["id"]: f"{m['name']} ({m['context']})" for m in models}
     
-    # 预设选项（内置 + 用户自定义）
-    preset_options = list(CONFIG_PRESETS.keys())
-    preset_labels = {k: v["name"] for k, v in CONFIG_PRESETS.items()}
+    # 参数预设选项（内置 + 用户自定义）
+    # 使用带参数值的显示名称
+    preset_options = []
+    for k, v in CONFIG_PRESETS.items():
+        display_name = get_preset_display_name(k, v)
+        preset_options.append(display_name)
+    
+    # 建立 ID 到显示名的映射
+    preset_id_to_display = {k: get_preset_display_name(k, v) for k, v in CONFIG_PRESETS.items()}
+    preset_display_to_id = {v: k for k, v in preset_id_to_display.items()}
     
     # 添加用户自定义预设
     if user_presets:
         for preset in user_presets:
             preset_key = f"user:{preset.id}"
-            preset_options.append(preset_key)
-            preset_labels[preset_key] = f"⭐ {preset.name}"
+            display_name = f"⭐ {preset.name} (T={preset.temperature}, {preset.max_tokens // 1000}K)"
+            preset_options.append(display_name)
+            preset_id_to_display[preset_key] = display_name
+            preset_display_to_id[display_name] = preset_key
+    
+    # 获取可用提示词列表
+    available_prompts = get_available_prompts()
+    prompt_options = ["（自定义）"] + [f"📄 {p['name']}" if p['builtin'] else f"⭐ {p['name']}" for p in available_prompts]
+    prompt_filenames = [""] + [p["filename"] for p in available_prompts]
+    
+    # 确定当前选中的提示词
+    current_prompt_option = "（自定义）"
+    if hasattr(config, 'prompt_file') and config.prompt_file:
+        for i, fname in enumerate(prompt_filenames):
+            if fname == config.prompt_file:
+                current_prompt_option = prompt_options[i]
+                break
     
     return [
         # === API 设置 ===
@@ -549,21 +693,37 @@ def build_settings_widgets(config: UserConfig, user_presets: list = None) -> lis
             description="自动检测生成的文件并提供下载链接",
             initial=config.show_download_links,
         ),
+        
+        # === 提示词管理 ===
+        Select(
+            id="prompt_template",
+            label="提示词模板",
+            description="选择预设提示词模板（📄内置 ⭐自定义），或选择「自定义」手动编辑",
+            values=prompt_options,
+            initial_value=current_prompt_option,
+        ),
         TextInput(
             id="system_prompt",
-            label="系统提示词",
-            description="自定义 Agent 系统提示词",
-            initial=config.system_prompt,
+            label="系统提示词内容",
+            description="当前使用的系统提示词（选择模板后自动加载，可修改）",
+            initial=config.system_prompt[:200] + "..." if len(config.system_prompt) > 200 else config.system_prompt,
             placeholder="你是港股智能分析系统...",
         ),
+        TextInput(
+            id="save_prompt_as",
+            label="另存为新提示词",
+            description="输入名称，将当前提示词保存为新模板",
+            initial="",
+            placeholder="输入模板名称后点击确认",
+        ),
         
-        # === 预设 ===
+        # === 参数预设 ===
         Select(
             id="preset",
-            label="配置预设",
-            description="快速应用预定义配置（⭐ 开头为自定义预设）",
+            label="参数预设",
+            description="快速切换模型参数组合（⭐ 开头为自定义）",
             values=preset_options,
-            initial_value=config.preset,
+            initial_value=preset_id_to_display.get(config.preset, preset_options[0] if preset_options else "default"),
         ),
         
         # === 自定义预设管理 ===
@@ -612,8 +772,18 @@ def settings_to_config(settings: dict, current_config: UserConfig, user_presets_
     if user_presets_dict:
         all_presets.update(user_presets_dict)
     
+    # 处理参数预设选择（从显示名称转为ID）
+    preset_display = settings.get("preset", "")
+    new_preset = current_config.preset
+    
+    # 尝试从显示名称解析预设ID
+    for preset_id, preset_data in all_presets.items():
+        display_name = get_preset_display_name(preset_id, preset_data)
+        if preset_display == display_name:
+            new_preset = preset_id
+            break
+    
     # 检查是否切换了预设
-    new_preset = settings.get("preset", current_config.preset)
     if new_preset != current_config.preset and new_preset in all_presets:
         # 应用预设
         preset = all_presets[new_preset]
@@ -627,7 +797,8 @@ def settings_to_config(settings: dict, current_config: UserConfig, user_presets_
             top_p=preset["top_p"],
             frequency_penalty=current_config.frequency_penalty,
             presence_penalty=current_config.presence_penalty,
-            system_prompt=settings.get("system_prompt", current_config.system_prompt),
+            system_prompt=current_config.system_prompt,  # 保持当前提示词
+            prompt_file=current_config.prompt_file,
             enable_mcp=settings.get("enable_mcp", current_config.enable_mcp),
             auto_approve=settings.get("auto_approve", current_config.auto_approve),
             show_download_links=settings.get("show_download_links", current_config.show_download_links),
@@ -652,7 +823,8 @@ def settings_to_config(settings: dict, current_config: UserConfig, user_presets_
         top_p=settings.get("top_p", current_config.top_p),
         frequency_penalty=current_config.frequency_penalty,
         presence_penalty=current_config.presence_penalty,
-        system_prompt=settings.get("system_prompt", current_config.system_prompt),
+        system_prompt=current_config.system_prompt,  # 提示词在别处处理
+        prompt_file=current_config.prompt_file,
         enable_mcp=settings.get("enable_mcp", current_config.enable_mcp),
         auto_approve=settings.get("auto_approve", current_config.auto_approve),
         show_download_links=settings.get("show_download_links", current_config.show_download_links),
@@ -755,7 +927,64 @@ async def on_settings_update(settings: dict):
     # 获取当前配置
     current_config = cl.user_session.get("config") or get_default_config()
     
-    # === 处理保存新预设 ===
+    # === 处理保存新提示词 ===
+    save_prompt_as = settings.get("save_prompt_as", "").strip()
+    if save_prompt_as:
+        # 保存当前提示词为新模板
+        prompt_content = settings.get("system_prompt", current_config.system_prompt)
+        filename = save_prompt_as if save_prompt_as.endswith(".md") else f"{save_prompt_as}.md"
+        
+        # 安全检查
+        if ".." not in filename and "/" not in filename:
+            prompt_path = project_root / "src" / "prompts" / filename
+            try:
+                prompt_path.write_text(prompt_content, encoding="utf-8")
+                await cl.Message(
+                    content=f"✅ **提示词已保存**: ⭐ {save_prompt_as}\n\n文件: `{filename}`",
+                    author="system",
+                ).send()
+                
+                # 刷新设置面板
+                user_presets = await config_storage.get_user_presets(user_id)
+                settings_widgets = build_settings_widgets(current_config, user_presets)
+                await cl.ChatSettings(settings_widgets).send()
+            except Exception as e:
+                await cl.Message(
+                    content=f"❌ **保存提示词失败**: {e}",
+                    author="system",
+                ).send()
+        else:
+            await cl.Message(
+                content=f"❌ **无效的文件名**",
+                author="system",
+            ).send()
+        return
+    
+    # === 处理提示词模板选择 ===
+    prompt_template = settings.get("prompt_template", "（自定义）")
+    if prompt_template != "（自定义）" and prompt_template.startswith(("📄 ", "⭐ ")):
+        # 从模板名称提取文件名
+        prompt_name = prompt_template[2:]  # 移除前缀
+        prompt_filename = f"{prompt_name}.md"
+        prompt_path = project_root / "src" / "prompts" / prompt_filename
+        
+        if prompt_path.exists():
+            try:
+                prompt_content = prompt_path.read_text(encoding="utf-8")
+                current_config.system_prompt = prompt_content
+                current_config.prompt_file = prompt_filename
+                
+                await cl.Message(
+                    content=f"✅ **已加载提示词模板**: {prompt_name}\n\n内容长度: {len(prompt_content)} 字符",
+                    author="system",
+                ).send()
+            except Exception as e:
+                await cl.Message(
+                    content=f"❌ **加载提示词失败**: {e}",
+                    author="system",
+                ).send()
+    
+    # === 处理保存新参数预设 ===
     new_preset_name = settings.get("new_preset_name", "").strip()
     if new_preset_name:
         # 创建新预设

@@ -62,11 +62,11 @@ MODEL_PRESETS: Dict[str, List[Dict[str, str]]] = {
 }
 
 
-# 内置配置预设模板（不可编辑）
+# 内置参数预设模板（不可编辑）
 BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
     "default": {
-        "name": "默认配置",
-        "description": "平衡的默认配置，适合日常使用",
+        "name": "默认",
+        "description": "平衡配置",
         "temperature": 0.7,
         "max_tokens": 8000,
         "top_p": 0.9,
@@ -74,7 +74,7 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "analysis": {
         "name": "深度分析",
-        "description": "适合深入分析港股公告，输出更详细",
+        "description": "详细分析",
         "temperature": 0.3,
         "max_tokens": 16000,
         "top_p": 0.95,
@@ -82,21 +82,32 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "summary": {
         "name": "快速摘要",
-        "description": "快速生成简洁摘要，节省 Token",
+        "description": "简洁输出",
         "temperature": 0.5,
         "max_tokens": 4000,
         "top_p": 0.85,
         "builtin": True,
     },
     "creative": {
-        "name": "创意报告",
-        "description": "生成更有创意的分析报告",
+        "name": "创意模式",
+        "description": "高创意",
         "temperature": 0.9,
         "max_tokens": 12000,
         "top_p": 0.95,
         "builtin": True,
     },
 }
+
+
+def get_preset_display_name(preset_id: str, preset_data: Dict[str, Any]) -> str:
+    """生成预设的显示名称，包含参数值."""
+    name = preset_data.get("name", preset_id)
+    temp = preset_data.get("temperature", 0.7)
+    tokens = preset_data.get("max_tokens", 8000)
+    
+    # 格式：名称 (T=0.7, 8K)
+    tokens_display = f"{tokens // 1000}K" if tokens >= 1000 else str(tokens)
+    return f"{name} (T={temp}, {tokens_display})"
 
 # 兼容旧代码
 CONFIG_PRESETS = BUILTIN_PRESETS
@@ -194,6 +205,7 @@ class UserConfig:
     
     # 系统设置
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
+    prompt_file: str = ""  # 当前使用的提示词文件名（空表示自定义）
     enable_mcp: bool = False
     auto_approve: bool = True  # 自动审批工具调用（Chainlit 默认开启）
     show_download_links: bool = True  # 显示生成文件的下载链接
