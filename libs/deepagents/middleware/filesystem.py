@@ -85,6 +85,35 @@ def _file_data_reducer(left: dict[str, FileData] | None, right: dict[str, FileDa
     return result
 
 
+def _has_path_traversal(path: str) -> bool:
+    """Check if path contains actual path traversal sequences.
+
+    Only flags ".." when it appears as a path component (directory traversal),
+    not when it's part of a filename like "file....txt" or "data...json".
+
+    Args:
+        path: The path to check.
+
+    Returns:
+        True if path contains traversal sequences, False otherwise.
+    """
+    # Normalize separators for consistent checking
+    normalized = path.replace("\\", "/")
+
+    # Check for ".." as a path component:
+    # - At the start: "../something" or ".."
+    # - In the middle: "/something/../other"
+    # - At the end: "/something/.."
+    if normalized.startswith("../") or normalized == "..":
+        return True
+    if "/../" in normalized:
+        return True
+    if normalized.endswith("/.."):
+        return True
+
+    return False
+
+
 def _validate_path(path: str, *, allowed_prefixes: Sequence[str] | None = None) -> str:
     r"""Validate and normalize file path for security.
 
@@ -105,9 +134,9 @@ def _validate_path(path: str, *, allowed_prefixes: Sequence[str] | None = None) 
         Normalized canonical path starting with `/` and using forward slashes.
 
     Raises:
-        ValueError: If path contains traversal sequences (`..` or `~`), is a
-            Windows absolute path (e.g., C:/...), or does not start with an
-            allowed prefix when `allowed_prefixes` is specified.
+        ValueError: If path contains traversal sequences (`..` as path component
+            or `~`), is a Windows absolute path (e.g., C:/...), or does not
+            start with an allowed prefix when `allowed_prefixes` is specified.
 
     Example:
         ```python
@@ -117,9 +146,10 @@ def _validate_path(path: str, *, allowed_prefixes: Sequence[str] | None = None) 
         validate_path(r"C:\\Users\\file.txt")  # Raises ValueError
         validate_path("/data/file.txt", allowed_prefixes=["/data/"])  # OK
         validate_path("/etc/file.txt", allowed_prefixes=["/data/"])  # Raises ValueError
+        validate_path("/cache/file....txt")  # OK - dots in filename, not traversal
         ```
     """
-    if ".." in path or path.startswith("~"):
+    if _has_path_traversal(path) or path.startswith("~"):
         msg = f"Path traversal not allowed: {path}"
         raise ValueError(msg)
 
