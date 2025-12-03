@@ -341,6 +341,7 @@ async def on_settings_update(settings: dict):
             assistant_id=cl.context.session.id,
             enable_mcp=new_config.enable_mcp,
             system_prompt=new_config.system_prompt,
+            use_checkpointer=False,  # Chainlit has its own persistence
         )
         cl.user_session.set("agent", agent)
         
@@ -383,6 +384,7 @@ async def on_chat_resume(thread: dict):
             assistant_id=thread["id"],
             enable_mcp=config.enable_mcp,
             system_prompt=config.system_prompt,
+            use_checkpointer=False,  # Chainlit has its own persistence
         )
         
         cl.user_session.set("agent", agent)
@@ -446,6 +448,7 @@ async def on_chat_start():
             assistant_id=cl.context.session.id,
             enable_mcp=config.enable_mcp,
             system_prompt=config.system_prompt,
+            use_checkpointer=False,  # Chainlit has its own persistence
         )
         # 保存到用户会话
         cl.user_session.set("agent", agent)

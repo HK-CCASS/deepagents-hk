@@ -3,7 +3,7 @@
 import subprocess
 from pathlib import Path
 
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 
 from .config import COLORS, HKEX_AGENT_ASCII, console
 from .ui import TokenTracker, show_interactive_help
@@ -18,7 +18,7 @@ def handle_command(command: str, agent, token_tracker: TokenTracker, assistant_i
 
     if cmd == "clear":
         # Reset agent conversation state
-        agent.checkpointer = InMemorySaver()
+        agent.checkpointer = MemorySaver()
 
         # Reset token tracking to baseline
         token_tracker.reset()

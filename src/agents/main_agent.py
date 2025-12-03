@@ -6,7 +6,7 @@ from typing import Any
 
 from langchain.agents.middleware import HostExecutionPolicy, InterruptOnConfig
 from langchain_core.language_models import BaseChatModel
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend
@@ -46,6 +46,7 @@ async def create_hkex_agent(
         enable_mcp: bool = False,
         middlewares: list[Any] | None = None,
         system_prompt: str | None = None,
+        use_checkpointer: bool = True,
 ) -> Any:
     """Create and configure the main HKEX agent.
 
@@ -56,6 +57,8 @@ async def create_hkex_agent(
         enable_mcp: Enable MCP tools integration (default: False).
         middlewares: Additional middlewares to include (e.g., SkillsMiddleware).
         system_prompt: Custom system prompt (optional, uses default if not provided).
+        use_checkpointer: Whether to use MemorySaver checkpointer (default: True).
+            Set to False for Chainlit to avoid msgpack serialization issues.
 
     Returns:
         Configured HKEX agent instance.
@@ -275,7 +278,10 @@ async def create_hkex_agent(
         },
     )
 
-    # Set up checkpointer for state persistence
-    agent.checkpointer = InMemorySaver()
+    # Set up checkpointer for state persistence (optional)
+    # Note: Chainlit should set use_checkpointer=False to avoid msgpack serialization
+    # issues with LangGraph's Send type used in subagent routing
+    if use_checkpointer:
+        agent.checkpointer = MemorySaver()
 
     return agent
