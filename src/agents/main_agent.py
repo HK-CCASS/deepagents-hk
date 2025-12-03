@@ -45,6 +45,7 @@ async def create_hkex_agent(
         tools: list[Any] | None = None,
         enable_mcp: bool = False,
         middlewares: list[Any] | None = None,
+        system_prompt: str | None = None,
 ) -> Any:
     """Create and configure the main HKEX agent.
 
@@ -54,6 +55,7 @@ async def create_hkex_agent(
         tools: Additional tools to include (optional).
         enable_mcp: Enable MCP tools integration (default: False).
         middlewares: Additional middlewares to include (e.g., SkillsMiddleware).
+        system_prompt: Custom system prompt (optional, uses default if not provided).
 
     Returns:
         Configured HKEX agent instance.
@@ -255,9 +257,12 @@ async def create_hkex_agent(
     # Create the agent
     # Note: create_deep_agent will create its own SubAgentMiddleware,
     # so we don't create a custom one to avoid duplicates
+    # Use custom system_prompt if provided, otherwise use default
+    final_system_prompt = system_prompt if system_prompt else get_system_prompt()
+    
     agent = create_deep_agent(
         model=model,
-        system_prompt=get_system_prompt(),
+        system_prompt=final_system_prompt,
         tools=hkex_tools,
         backend=backend,
         middleware=agent_middleware,  # Only pass our custom middleware, not SubAgentMiddleware
