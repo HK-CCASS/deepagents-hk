@@ -40,9 +40,11 @@ from src.agents.main_agent import create_hkex_agent
 from local_storage import LocalStorageClient
 from config_models import (
     UserConfig,
+    UserPreset,
     APIProvider,
     MODEL_PRESETS,
     CONFIG_PRESETS,
+    BUILTIN_PRESETS,
     DEFAULT_SYSTEM_PROMPT,
     get_default_config,
     get_models_for_provider,
@@ -285,6 +287,35 @@ async def check_email(req: CheckEmailRequest):
     return {"available": user is None}
 
 
+# ============== 用户预设管理 API ==============
+
+class PresetRequest(BaseModel):
+    """预设请求模型。"""
+    id: str
+    name: str
+    description: str = ""
+    temperature: float = 0.7
+    max_tokens: int = 8000
+    top_p: float = 0.9
+
+
+@fastapi_app.get("/api/presets")
+async def get_presets():
+    """获取所有可用预设（内置 + 用户自定义）。
+    
+    需要用户登录，从 session 获取用户 ID。
+    """
+    # 注意：这个 API 不需要认证，返回内置预设
+    # 用户自定义预设需要通过 Chainlit session 获取
+    return {
+        "builtin": [
+            {"id": k, **v}
+            for k, v in BUILTIN_PRESETS.items()
+        ],
+        "user_presets": []  # 用户预设需要通过 Chainlit session 获取
+    }
+
+
 # ============== 用户认证 ==============
 @cl.password_auth_callback
 async def auth_callback(username: str, password: str):
@@ -394,11 +425,33 @@ def create_model_from_config(config: UserConfig):
         raise ValueError(f"不支持的 API Provider: {config.provider}")
 
 
-def build_settings_widgets(config: UserConfig) -> list:
+async def get_all_presets_for_user(user_id: str) -> dict:
+    """获取用户所有可用预设（内置 + 自定义）.
+    
+    Args:
+        user_id: 用户 ID
+        
+    Returns:
+        合并后的预设字典
+    """
+    # 获取用户自定义预设
+    user_presets = await config_storage.get_user_presets(user_id)
+    
+    # 合并预设（内置 + 用户自定义）
+    all_presets = dict(BUILTIN_PRESETS)
+    for preset in user_presets:
+        # 用户预设以 "user:" 前缀区分
+        all_presets[f"user:{preset.id}"] = preset.to_preset_dict()
+    
+    return all_presets
+
+
+def build_settings_widgets(config: UserConfig, user_presets: list = None) -> list:
     """构建设置面板组件.
     
     Args:
         config: 当前用户配置
+        user_presets: 用户自定义预设列表
         
     Returns:
         Chainlit 输入组件列表
@@ -408,9 +461,16 @@ def build_settings_widgets(config: UserConfig) -> list:
     model_options = [m["id"] for m in models]
     model_labels = {m["id"]: f"{m['name']} ({m['context']})" for m in models}
     
-    # 预设选项
+    # 预设选项（内置 + 用户自定义）
     preset_options = list(CONFIG_PRESETS.keys())
     preset_labels = {k: v["name"] for k, v in CONFIG_PRESETS.items()}
+    
+    # 添加用户自定义预设
+    if user_presets:
+        for preset in user_presets:
+            preset_key = f"user:{preset.id}"
+            preset_options.append(preset_key)
+            preset_labels[preset_key] = f"⭐ {preset.name}"
     
     return [
         # === API 设置 ===
@@ -501,9 +561,24 @@ def build_settings_widgets(config: UserConfig) -> list:
         Select(
             id="preset",
             label="配置预设",
-            description="快速应用预定义配置",
+            description="快速应用预定义配置（⭐ 开头为自定义预设）",
             values=preset_options,
             initial_value=config.preset,
+        ),
+        
+        # === 自定义预设管理 ===
+        TextInput(
+            id="new_preset_name",
+            label="保存为新预设",
+            description="输入名称，将当前参数保存为自定义预设",
+            initial="",
+            placeholder="输入预设名称后点击确认即可保存",
+        ),
+        Switch(
+            id="delete_current_preset",
+            label="🗑️ 删除当前预设",
+            description="仅可删除自定义预设（⭐ 开头），内置预设不可删除",
+            initial=False,
         ),
         
         # === 测试连接 ===
@@ -516,12 +591,13 @@ def build_settings_widgets(config: UserConfig) -> list:
     ]
 
 
-def settings_to_config(settings: dict, current_config: UserConfig) -> UserConfig:
+def settings_to_config(settings: dict, current_config: UserConfig, user_presets_dict: dict = None) -> UserConfig:
     """将设置面板值转换为配置对象.
     
     Args:
         settings: 设置面板返回的字典
         current_config: 当前配置（用于获取未修改的值）
+        user_presets_dict: 用户自定义预设字典（可选）
         
     Returns:
         更新后的 UserConfig 对象
@@ -531,11 +607,16 @@ def settings_to_config(settings: dict, current_config: UserConfig) -> UserConfig
     if custom_model:
         custom_model = custom_model.strip() or None
     
+    # 合并预设字典
+    all_presets = dict(CONFIG_PRESETS)
+    if user_presets_dict:
+        all_presets.update(user_presets_dict)
+    
     # 检查是否切换了预设
     new_preset = settings.get("preset", current_config.preset)
-    if new_preset != current_config.preset and new_preset in CONFIG_PRESETS:
+    if new_preset != current_config.preset and new_preset in all_presets:
         # 应用预设
-        preset = CONFIG_PRESETS[new_preset]
+        preset = all_presets[new_preset]
         return UserConfig(
             provider=settings.get("provider", current_config.provider),
             model=settings.get("model", current_config.model),
@@ -660,13 +741,93 @@ async def on_settings_update(settings: dict):
     """处理设置更新.
     
     当用户在设置面板中修改配置时触发。
+    支持：
+    - 修改配置参数
+    - 应用预设
+    - 保存新预设
+    - 删除自定义预设
     """
+    import uuid
+    
     user = cl.user_session.get("user")
     user_id = user.identifier if user else "anonymous"
     
     # 获取当前配置
     current_config = cl.user_session.get("config") or get_default_config()
     
+    # === 处理保存新预设 ===
+    new_preset_name = settings.get("new_preset_name", "").strip()
+    if new_preset_name:
+        # 创建新预设
+        preset_id = str(uuid.uuid4())[:8]
+        new_preset = UserPreset(
+            id=preset_id,
+            user_id=user_id,
+            name=new_preset_name,
+            description=f"基于当前配置创建",
+            temperature=settings.get("temperature", current_config.temperature),
+            max_tokens=int(settings.get("max_tokens", current_config.max_tokens)),
+            top_p=settings.get("top_p", current_config.top_p),
+        )
+        
+        success = await config_storage.create_preset(user_id, new_preset)
+        if success:
+            await cl.Message(
+                content=f"✅ **预设已保存**: ⭐ {new_preset_name}\n\n"
+                        f"- Temperature: {new_preset.temperature}\n"
+                        f"- Max Tokens: {new_preset.max_tokens}\n"
+                        f"- Top P: {new_preset.top_p}",
+                author="system",
+            ).send()
+            
+            # 刷新设置面板以显示新预设
+            user_presets = await config_storage.get_user_presets(user_id)
+            settings_widgets = build_settings_widgets(current_config, user_presets)
+            await cl.ChatSettings(settings_widgets).send()
+        else:
+            await cl.Message(
+                content=f"❌ **保存预设失败**",
+                author="system",
+            ).send()
+        return
+    
+    # === 处理删除预设 ===
+    delete_preset = settings.get("delete_current_preset", False)
+    current_preset = settings.get("preset", current_config.preset)
+    
+    if delete_preset and current_preset.startswith("user:"):
+        preset_id = current_preset[5:]  # 移除 "user:" 前缀
+        success = await config_storage.delete_preset(user_id, preset_id)
+        
+        if success:
+            await cl.Message(
+                content=f"🗑️ **预设已删除**",
+                author="system",
+            ).send()
+            
+            # 重置为默认预设
+            current_config.preset = "default"
+            await config_storage.save_config(user_id, current_config)
+            cl.user_session.set("config", current_config)
+            
+            # 刷新设置面板
+            user_presets = await config_storage.get_user_presets(user_id)
+            settings_widgets = build_settings_widgets(current_config, user_presets)
+            await cl.ChatSettings(settings_widgets).send()
+        else:
+            await cl.Message(
+                content=f"❌ **删除预设失败**",
+                author="system",
+            ).send()
+        return
+    elif delete_preset:
+        await cl.Message(
+            content=f"⚠️ **无法删除内置预设**\n\n只有自定义预设（⭐ 开头）可以删除。",
+            author="system",
+        ).send()
+        return
+    
+    # === 正常配置更新流程 ===
     # 转换为新配置
     new_config = settings_to_config(settings, current_config)
     
@@ -694,7 +855,8 @@ async def on_settings_update(settings: dict):
     
     # 如果 provider 变更，需要重新初始化设置面板
     if provider_changed:
-        settings_widgets = build_settings_widgets(new_config)
+        user_presets = await config_storage.get_user_presets(user_id)
+        settings_widgets = build_settings_widgets(new_config, user_presets)
         await cl.ChatSettings(settings_widgets).send()
     
     # 重新创建 Agent
@@ -768,6 +930,10 @@ async def on_chat_resume(thread: dict):
     config = await config_storage.load_or_default(user_id)
     cl.user_session.set("config", config)
     
+    # 加载用户自定义预设
+    user_presets = await config_storage.get_user_presets(user_id)
+    cl.user_session.set("user_presets", user_presets)
+    
     # ⭐ 从 thread["steps"] 恢复历史消息（关键修复！）
     message_history = []
     for step in thread.get("steps", []):
@@ -803,8 +969,8 @@ async def on_chat_resume(thread: dict):
         cl.user_session.set("agent", agent)
         cl.user_session.set("thread_id", thread["id"])
         
-        # 初始化设置面板
-        settings_widgets = build_settings_widgets(config)
+        # 初始化设置面板（包含用户自定义预设）
+        settings_widgets = build_settings_widgets(config, user_presets)
         await cl.ChatSettings(settings_widgets).send()
         
         await cl.Message(
@@ -828,11 +994,15 @@ async def on_chat_start():
     config = await config_storage.load_or_default(user_id)
     cl.user_session.set("config", config)
     
+    # 加载用户自定义预设
+    user_presets = await config_storage.get_user_presets(user_id)
+    cl.user_session.set("user_presets", user_presets)
+    
     # ⭐ 初始化消息历史（关键：保持对话上下文）
     cl.user_session.set("message_history", [])
     
-    # 初始化设置面板
-    settings_widgets = build_settings_widgets(config)
+    # 初始化设置面板（包含用户自定义预设）
+    settings_widgets = build_settings_widgets(config, user_presets)
     await cl.ChatSettings(settings_widgets).send()
     
     # 发送欢迎消息

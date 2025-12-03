@@ -1,17 +1,17 @@
 """
-配置持久化层 - SQLite 存储用户配置
+配置持久化层 - SQLite 存储用户配置和自定义预设
 
-扩展现有 SQLite 数据库，实现用户配置的存储和加载。
+扩展现有 SQLite 数据库，实现用户配置和预设的存储和加载。
 """
 
 import json
 import sqlite3
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import aiosqlite
 
-from config_models import UserConfig, get_default_config
+from config_models import UserConfig, get_default_config, UserPreset
 
 
 class ConfigStorage:
@@ -59,13 +59,14 @@ class ConfigStorage:
             await db.commit()
     
     def init_table_sync(self) -> None:
-        """同步初始化配置表.
+        """同步初始化配置表和预设表.
         
         用于启动时确保表存在。
         """
         conn = sqlite3.connect(self.db_path)
         try:
             cursor = conn.cursor()
+            # 用户配置表
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_configs (
                     user_id TEXT PRIMARY KEY,
@@ -74,7 +75,26 @@ class ConfigStorage:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            # 创建更新时间触发器（SQLite 不支持 IF NOT EXISTS for triggers）
+            # 用户自定义预设表
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_presets (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    temperature REAL DEFAULT 0.7,
+                    max_tokens INTEGER DEFAULT 8000,
+                    top_p REAL DEFAULT 0.9,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # 创建索引
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_user_presets_user_id 
+                ON user_presets(user_id)
+            """)
+            # 创建更新时间触发器
             try:
                 cursor.execute("""
                     CREATE TRIGGER update_user_config_timestamp
@@ -85,7 +105,17 @@ class ConfigStorage:
                     END
                 """)
             except sqlite3.OperationalError:
-                # 触发器已存在
+                pass
+            try:
+                cursor.execute("""
+                    CREATE TRIGGER update_user_preset_timestamp
+                    AFTER UPDATE ON user_presets
+                    BEGIN
+                        UPDATE user_presets SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = NEW.id;
+                    END
+                """)
+            except sqlite3.OperationalError:
                 pass
             conn.commit()
         finally:
@@ -236,6 +266,147 @@ class ConfigStorage:
         except Exception as e:
             print(f"获取统计信息失败: {e}")
             return {"total_users": 0, "last_updated": None}
+    
+    # ============== 用户自定义预设管理 ==============
+    
+    async def create_preset(self, user_id: str, preset: UserPreset) -> bool:
+        """创建用户预设.
+        
+        Args:
+            user_id: 用户标识
+            preset: 预设对象
+            
+        Returns:
+            是否创建成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    INSERT INTO user_presets (id, user_id, name, description, temperature, max_tokens, top_p)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (preset.id, user_id, preset.name, preset.description, 
+                      preset.temperature, preset.max_tokens, preset.top_p))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"创建预设失败: {e}")
+            return False
+    
+    async def update_preset(self, user_id: str, preset: UserPreset) -> bool:
+        """更新用户预设.
+        
+        Args:
+            user_id: 用户标识
+            preset: 预设对象
+            
+        Returns:
+            是否更新成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    UPDATE user_presets 
+                    SET name = ?, description = ?, temperature = ?, max_tokens = ?, top_p = ?
+                    WHERE id = ? AND user_id = ?
+                """, (preset.name, preset.description, preset.temperature, 
+                      preset.max_tokens, preset.top_p, preset.id, user_id))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"更新预设失败: {e}")
+            return False
+    
+    async def delete_preset(self, user_id: str, preset_id: str) -> bool:
+        """删除用户预设.
+        
+        Args:
+            user_id: 用户标识
+            preset_id: 预设 ID
+            
+        Returns:
+            是否删除成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute(
+                    "DELETE FROM user_presets WHERE id = ? AND user_id = ?",
+                    (preset_id, user_id)
+                )
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"删除预设失败: {e}")
+            return False
+    
+    async def get_preset(self, user_id: str, preset_id: str) -> Optional[UserPreset]:
+        """获取单个预设.
+        
+        Args:
+            user_id: 用户标识
+            preset_id: 预设 ID
+            
+        Returns:
+            预设对象，不存在返回 None
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    "SELECT * FROM user_presets WHERE id = ? AND user_id = ?",
+                    (preset_id, user_id)
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return UserPreset(
+                            id=row["id"],
+                            user_id=row["user_id"],
+                            name=row["name"],
+                            description=row["description"],
+                            temperature=row["temperature"],
+                            max_tokens=row["max_tokens"],
+                            top_p=row["top_p"],
+                            created_at=row["created_at"],
+                            updated_at=row["updated_at"],
+                        )
+            return None
+        except Exception as e:
+            print(f"获取预设失败: {e}")
+            return None
+    
+    async def get_user_presets(self, user_id: str) -> List[UserPreset]:
+        """获取用户的所有自定义预设.
+        
+        Args:
+            user_id: 用户标识
+            
+        Returns:
+            预设列表
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    "SELECT * FROM user_presets WHERE user_id = ? ORDER BY created_at DESC",
+                    (user_id,)
+                ) as cursor:
+                    rows = await cursor.fetchall()
+                    return [
+                        UserPreset(
+                            id=row["id"],
+                            user_id=row["user_id"],
+                            name=row["name"],
+                            description=row["description"],
+                            temperature=row["temperature"],
+                            max_tokens=row["max_tokens"],
+                            top_p=row["top_p"],
+                            created_at=row["created_at"],
+                            updated_at=row["updated_at"],
+                        )
+                        for row in rows
+                    ]
+        except Exception as e:
+            print(f"获取用户预设列表失败: {e}")
+            return []
 
 
 # 全局配置存储实例（延迟初始化）

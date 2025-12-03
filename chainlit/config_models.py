@@ -62,14 +62,15 @@ MODEL_PRESETS: Dict[str, List[Dict[str, str]]] = {
 }
 
 
-# 配置预设模板
-CONFIG_PRESETS: Dict[str, Dict[str, Any]] = {
+# 内置配置预设模板（不可编辑）
+BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
     "default": {
         "name": "默认配置",
         "description": "平衡的默认配置，适合日常使用",
         "temperature": 0.7,
         "max_tokens": 8000,
         "top_p": 0.9,
+        "builtin": True,
     },
     "analysis": {
         "name": "深度分析",
@@ -77,6 +78,7 @@ CONFIG_PRESETS: Dict[str, Dict[str, Any]] = {
         "temperature": 0.3,
         "max_tokens": 16000,
         "top_p": 0.95,
+        "builtin": True,
     },
     "summary": {
         "name": "快速摘要",
@@ -84,6 +86,7 @@ CONFIG_PRESETS: Dict[str, Dict[str, Any]] = {
         "temperature": 0.5,
         "max_tokens": 4000,
         "top_p": 0.85,
+        "builtin": True,
     },
     "creative": {
         "name": "创意报告",
@@ -91,8 +94,54 @@ CONFIG_PRESETS: Dict[str, Dict[str, Any]] = {
         "temperature": 0.9,
         "max_tokens": 12000,
         "top_p": 0.95,
+        "builtin": True,
     },
 }
+
+# 兼容旧代码
+CONFIG_PRESETS = BUILTIN_PRESETS
+
+
+@dataclass
+class UserPreset:
+    """用户自定义预设数据类."""
+    
+    id: str  # 预设 ID (唯一标识)
+    name: str  # 显示名称
+    description: str = ""  # 描述
+    temperature: float = 0.7
+    max_tokens: int = 8000
+    top_p: float = 0.9
+    user_id: str = ""  # 所属用户
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典."""
+        return asdict(self)
+    
+    def to_json(self) -> str:
+        """序列化为 JSON."""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "UserPreset":
+        """从字典创建."""
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered_data)
+    
+    def to_preset_dict(self) -> Dict[str, Any]:
+        """转换为预设格式（兼容 CONFIG_PRESETS 格式）."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "top_p": self.top_p,
+            "builtin": False,
+            "user_preset_id": self.id,
+        }
 
 
 # 默认系统提示词 - 使用与 CLI 相同的完整提示词
