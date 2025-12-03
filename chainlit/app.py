@@ -8,9 +8,15 @@ import os
 import sys
 from pathlib import Path
 
-# 添加项目根目录到路径
-project_root = Path(__file__).parent.parent
+# 获取项目根目录
+project_root = Path(__file__).parent.parent.resolve()
+
+# 添加项目根目录到 Python 路径
 sys.path.insert(0, str(project_root))
+
+# 切换工作目录到项目根目录，确保相对路径正确解析
+# 这样 mcp_config.json、pdf_cache/ 等路径都能正常工作
+os.chdir(project_root)
 
 import chainlit as cl
 from langchain_core.runnables import RunnableConfig
