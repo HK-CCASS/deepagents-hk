@@ -27,46 +27,51 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 from src.cli.config import create_model
 from src.agents.main_agent import create_hkex_agent
+from local_storage import LocalStorageClient
 
 # ============== 数据持久化配置 ==============
 # 使用 SQLite 存储对话历史
 DB_PATH = project_root / "chainlit_data" / "chat_history.db"
+STORAGE_PATH = project_root / "chainlit_data" / "files"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+STORAGE_PATH.mkdir(parents=True, exist_ok=True)
+
+# 创建本地存储客户端
+storage_client = LocalStorageClient(storage_dir=STORAGE_PATH)
 
 
 @cl.data_layer
 def get_data_layer():
-    """配置 SQLite 数据持久化层。"""
+    """配置 SQLite 数据持久化层（带本地文件存储）。"""
     return SQLAlchemyDataLayer(
         conninfo=f"sqlite+aiosqlite:///{DB_PATH}",
-        auto_upgrade=True,  # 自动创建/升级数据库表
+        storage_provider=storage_client,
     )
 
 
 # ============== 简单用户认证 ==============
 @cl.password_auth_callback
-def auth_callback(username: str, password: str) -> Optional[cl.User]:
+def auth_callback(username: str, password: str):
     """
     简单密码认证。
     
     默认用户：
     - 用户名: admin, 密码: admin (管理员)
     - 用户名: user, 密码: user (普通用户)
-    
-    可以通过环境变量 CHAINLIT_AUTH_SECRET 设置自定义密钥。
     """
-    # 简单的用户验证（生产环境应使用更安全的方式）
-    users = {
-        "admin": {"password": "admin", "role": "admin"},
-        "user": {"password": "user", "role": "user"},
-    }
-    
-    if username in users and users[username]["password"] == password:
+    # 简单用户验证
+    if (username, password) == ("admin", "admin"):
         return cl.User(
-            identifier=username,
-            metadata={"role": users[username]["role"], "provider": "credentials"}
+            identifier="admin", 
+            metadata={"role": "ADMIN", "provider": "credentials"}
         )
-    return None
+    elif (username, password) == ("user", "user"):
+        return cl.User(
+            identifier="user", 
+            metadata={"role": "USER", "provider": "credentials"}
+        )
+    else:
+        return None
 
 
 # ============== 对话恢复 ==============
