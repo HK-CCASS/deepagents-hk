@@ -15,13 +15,20 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # SQL Schema for Chainlit (adapted for SQLite)
 SCHEMA = """
--- Users table
+-- Users table (扩展用户认证字段)
 CREATE TABLE IF NOT EXISTS users (
     "id" TEXT PRIMARY KEY,
     "identifier" TEXT NOT NULL UNIQUE,
     "metadata" TEXT NOT NULL,
-    "createdAt" TEXT
+    "createdAt" TEXT,
+    "password_hash" TEXT,
+    "email" TEXT,
+    "display_name" TEXT,
+    "is_active" INTEGER DEFAULT 1
 );
+
+-- Email 唯一索引（允许 NULL）
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users("email") WHERE "email" IS NOT NULL;
 
 -- Threads table (conversations)
 CREATE TABLE IF NOT EXISTS threads (
@@ -116,6 +123,48 @@ BEGIN
 END;
 """
 
+# 用户表迁移 SQL（为现有数据库添加新列）
+# 注意：SQLite 不支持在 ALTER TABLE 中添加 UNIQUE 列，所以 email 列不带 UNIQUE
+USER_TABLE_MIGRATIONS = [
+    ('password_hash', 'ALTER TABLE users ADD COLUMN "password_hash" TEXT'),
+    ('email', 'ALTER TABLE users ADD COLUMN "email" TEXT'),
+    ('display_name', 'ALTER TABLE users ADD COLUMN "display_name" TEXT'),
+    ('is_active', 'ALTER TABLE users ADD COLUMN "is_active" INTEGER DEFAULT 1'),
+]
+
+# 用户表索引（用于 email 唯一性检查）
+USER_TABLE_INDEXES = [
+    ('idx_users_email', 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users("email") WHERE "email" IS NOT NULL'),
+]
+
+
+def migrate_users_table(cursor: sqlite3.Cursor) -> None:
+    """为现有 users 表添加新的认证字段。"""
+    # 获取现有列
+    cursor.execute("PRAGMA table_info(users)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+    
+    # 添加缺失的列
+    for column_name, alter_sql in USER_TABLE_MIGRATIONS:
+        if column_name not in existing_columns:
+            try:
+                cursor.execute(alter_sql)
+                print(f"  ✓ 添加列: {column_name}")
+            except sqlite3.OperationalError as e:
+                # 列已存在，忽略
+                if "duplicate column" not in str(e).lower():
+                    print(f"  ⚠ 添加列 {column_name} 失败: {e}")
+    
+    # 创建索引（用于邮箱唯一性检查）
+    for index_name, index_sql in USER_TABLE_INDEXES:
+        try:
+            cursor.execute(index_sql)
+            print(f"  ✓ 创建索引: {index_name}")
+        except sqlite3.OperationalError:
+            # 索引已存在，忽略
+            pass
+
+
 def init_database():
     """创建数据库和表。"""
     print(f"📦 初始化数据库: {DB_PATH}")
@@ -125,6 +174,10 @@ def init_database():
     
     # 执行 schema
     cursor.executescript(SCHEMA)
+    
+    # 迁移 users 表（添加新的认证字段）
+    print("🔄 检查用户表迁移...")
+    migrate_users_table(cursor)
     
     # 创建配置表触发器（需要单独执行）
     try:
@@ -139,6 +192,11 @@ def init_database():
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = cursor.fetchall()
     print(f"✅ 已创建表: {[t[0] for t in tables]}")
+    
+    # 显示 users 表结构
+    cursor.execute("PRAGMA table_info(users)")
+    columns = cursor.fetchall()
+    print(f"✅ users 表字段: {[col[1] for col in columns]}")
     
     # 显示触发器
     cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger';")

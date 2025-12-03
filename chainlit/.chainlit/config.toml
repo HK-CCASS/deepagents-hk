@@ -51,5 +51,8 @@ default_theme = "dark"
 # Chain of Thought 显示模式
 cot = "full"
 
+# 自定义 JavaScript（添加注册链接到登录页面）
+custom_js = "/public/custom.js"
+
 [meta]
 generated_by = "HKEX Agent"

@@ -30,6 +30,10 @@ os.chdir(project_root)
 import chainlit as cl
 from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
 from chainlit.input_widget import Select, Slider, Switch, TextInput
+from chainlit.server import app as fastapi_app
+from fastapi import HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from pydantic import BaseModel, EmailStr, field_validator
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.agents.main_agent import create_hkex_agent
@@ -45,6 +49,7 @@ from config_models import (
     get_preset_options,
 )
 from config_storage import get_config_storage, init_config_storage
+import auth_service
 
 # ============== 数据持久化配置 ==============
 # 使用 SQLite 存储对话历史
@@ -172,33 +177,148 @@ def get_data_layer():
     )
 
 
-# ============== 简单用户认证 ==============
+# ============== 用户注册 API ==============
+
+class RegisterRequest(BaseModel):
+    """用户注册请求模型。"""
+    username: str
+    password: str
+    email: EmailStr
+    display_name: str
+    
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """验证用户名格式。"""
+        if len(v) < 3:
+            raise ValueError("用户名至少需要 3 个字符")
+        if len(v) > 32:
+            raise ValueError("用户名不能超过 32 个字符")
+        if not v.isalnum() and "_" not in v:
+            raise ValueError("用户名只能包含字母、数字和下划线")
+        return v
+    
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """验证密码强度。"""
+        if len(v) < 6:
+            raise ValueError("密码至少需要 6 个字符")
+        return v
+    
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, v: str) -> str:
+        """验证显示名称。"""
+        if len(v) < 1:
+            raise ValueError("显示名称不能为空")
+        if len(v) > 64:
+            raise ValueError("显示名称不能超过 64 个字符")
+        return v
+
+
+@fastapi_app.post("/api/register")
+async def register_user(req: RegisterRequest):
+    """用户注册 API。
+    
+    创建新用户账户，密码使用 bcrypt 加密存储。
+    """
+    try:
+        user = auth_service.create_user(
+            username=req.username,
+            password=req.password,
+            email=req.email,
+            display_name=req.display_name,
+            role="USER"
+        )
+        return {
+            "success": True,
+            "message": "注册成功",
+            "user": {
+                "username": user["identifier"],
+                "email": user["email"],
+                "display_name": user["display_name"]
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("注册失败")
+        raise HTTPException(status_code=500, detail="注册失败，请稍后重试")
+
+
+@fastapi_app.get("/register")
+async def register_page():
+    """重定向到注册页面。"""
+    return RedirectResponse(url="/public/register.html", status_code=302)
+
+
+class CheckUsernameRequest(BaseModel):
+    """检查用户名请求模型。"""
+    username: str
+
+
+class CheckEmailRequest(BaseModel):
+    """检查邮箱请求模型。"""
+    email: str
+
+
+@fastapi_app.post("/api/check-username")
+async def check_username(req: CheckUsernameRequest):
+    """检查用户名是否可用。"""
+    user = auth_service.get_user_by_username(req.username)
+    return {"available": user is None}
+
+
+@fastapi_app.post("/api/check-email")
+async def check_email(req: CheckEmailRequest):
+    """检查邮箱是否可用。"""
+    user = auth_service.get_user_by_email(req.email)
+    return {"available": user is None}
+
+
+# ============== 用户认证 ==============
 @cl.password_auth_callback
 async def auth_callback(username: str, password: str):
     """
-    简单密码认证。
+    密码认证回调。
     
-    默认用户：
-    - 用户名: admin, 密码: admin (管理员)
-    - 用户名: user, 密码: user (普通用户)
+    支持两种认证方式：
+    1. 数据库注册用户 - 通过 auth_service 验证
+    2. 内置默认用户 - admin/admin (管理员), user/user (普通用户)
     
     注意：必须返回 PersistedUser 才能正确关联用户到对话（用于分享功能）。
     """
     from chainlit.data import get_data_layer
     
-    # 验证用户凭据
-    if (username, password) == ("admin", "admin"):
+    # 首先尝试从数据库验证用户
+    authenticated_user = auth_service.authenticate_user(username, password)
+    
+    if authenticated_user:
+        # 用户验证成功
         user = cl.User(
-            identifier="admin", 
-            metadata={"role": "ADMIN", "provider": "credentials"}
-        )
-    elif (username, password) == ("user", "user"):
-        user = cl.User(
-            identifier="user", 
-            metadata={"role": "USER", "provider": "credentials"}
+            identifier=authenticated_user["identifier"],
+            metadata={
+                "role": authenticated_user.get("role", "USER"),
+                "provider": "credentials",
+                "email": authenticated_user.get("email"),
+                "display_name": authenticated_user.get("display_name")
+            }
         )
     else:
-        return None
+        # 数据库验证失败，尝试内置默认用户（向后兼容）
+        if (username, password) == ("admin", "admin"):
+            user = cl.User(
+                identifier="admin", 
+                metadata={"role": "ADMIN", "provider": "credentials"}
+            )
+        elif (username, password) == ("user", "user"):
+            user = cl.User(
+                identifier="user", 
+                metadata={"role": "USER", "provider": "credentials"}
+            )
+        else:
+            return None
     
     # 使用数据层创建或获取 PersistedUser，以便正确关联用户到对话
     data_layer = get_data_layer()

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 港股智能分析系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: hsl(0, 0%, 13%);
+            --foreground: hsl(0, 0%, 93%);
+            --card: hsl(0, 0%, 18%);
+            --card-foreground: hsl(210, 40%, 98%);
+            --primary: hsl(340, 92%, 52%);
+            --primary-foreground: hsl(0, 0%, 100%);
+            --secondary: hsl(0, 0%, 19%);
+            --muted: hsl(0, 1%, 26%);
+            --muted-foreground: hsl(0, 0%, 71%);
+            --border: hsl(0, 1%, 26%);
+            --input: hsl(0, 1%, 26%);
+            --ring: hsl(340, 92%, 52%);
+            --destructive: hsl(0, 62.8%, 50%);
+            --success: hsl(142, 71%, 45%);
+            --radius: 0.75rem;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--foreground);
+            margin-bottom: 0.5rem;
+        }
+        
+        .logo p {
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--foreground);
+        }
+        
+        .form-group label .required {
+            color: var(--destructive);
+            margin-left: 2px;
+        }
+        
+        .input-wrapper {
+            position: relative;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) - 2px);
+            color: var(--foreground);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px hsla(340, 92%, 52%, 0.2);
+        }
+        
+        .form-group input.error {
+            border-color: var(--destructive);
+        }
+        
+        .form-group input.success {
+            border-color: var(--success);
+        }
+        
+        .form-group input::placeholder {
+            color: var(--muted-foreground);
+        }
+        
+        .validation-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+        }
+        
+        .error-message {
+            color: var(--destructive);
+            font-size: 0.75rem;
+            margin-top: 0.375rem;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .password-strength {
+            height: 4px;
+            background: var(--muted);
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .password-strength .bar {
+            height: 100%;
+            width: 0;
+            transition: width 0.3s, background 0.3s;
+            border-radius: 2px;
+        }
+        
+        .password-strength .bar.weak { width: 33%; background: var(--destructive); }
+        .password-strength .bar.medium { width: 66%; background: hsl(45, 93%, 47%); }
+        .password-strength .bar.strong { width: 100%; background: var(--success); }
+        
+        .password-hint {
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+            margin-top: 0.375rem;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: none;
+            border-radius: calc(var(--radius) - 2px);
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-foreground);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+        
+        .btn-primary:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+        }
+        
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid var(--primary-foreground);
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .footer p {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+        }
+        
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .alert {
+            padding: 0.875rem 1rem;
+            border-radius: calc(var(--radius) - 2px);
+            font-size: 0.875rem;
+            margin-bottom: 1.25rem;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-error {
+            background: hsla(0, 62.8%, 50%, 0.15);
+            border: 1px solid hsla(0, 62.8%, 50%, 0.3);
+            color: hsl(0, 62.8%, 70%);
+        }
+        
+        .alert-success {
+            background: hsla(142, 71%, 45%, 0.15);
+            border: 1px solid hsla(142, 71%, 45%, 0.3);
+            color: hsl(142, 71%, 65%);
+        }
+        
+        @media (max-width: 480px) {
+            .card {
+                padding: 1.5rem;
+            }
+            
+            .logo h1 {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <h1>🤖 港股智能分析系统</h1>
+                <p>创建您的账户</p>
+            </div>
+            
+            <div id="alert" class="alert"></div>
+            
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="username">用户名 <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="text" id="username" name="username" 
+                               placeholder="3-32 个字符，字母数字下划线" 
+                               autocomplete="username" required>
+                        <span class="validation-icon" id="usernameIcon"></span>
+                    </div>
+                    <div class="error-message" id="usernameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">邮箱 <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" name="email" 
+                               placeholder="your@email.com" 
+                               autocomplete="email" required>
+                        <span class="validation-icon" id="emailIcon"></span>
+                    </div>
+                    <div class="error-message" id="emailError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="display_name">显示名称 <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="text" id="display_name" name="display_name" 
+                               placeholder="您的昵称或真实姓名" 
+                               autocomplete="name" required>
+                    </div>
+                    <div class="error-message" id="displayNameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码 <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" name="password" 
+                               placeholder="至少 6 个字符" 
+                               autocomplete="new-password" required>
+                    </div>
+                    <div class="password-strength">
+                        <div class="bar" id="strengthBar"></div>
+                    </div>
+                    <div class="password-hint" id="passwordHint">密码强度：未输入</div>
+                    <div class="error-message" id="passwordError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm_password">确认密码 <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="password" id="confirm_password" name="confirm_password" 
+                               placeholder="再次输入密码" 
+                               autocomplete="new-password" required>
+                        <span class="validation-icon" id="confirmIcon"></span>
+                    </div>
+                    <div class="error-message" id="confirmError"></div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    注册
+                </button>
+            </form>
+            
+            <div class="footer">
+                <p>已有账户？<a href="/">返回登录</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('registerForm');
+        const alert = document.getElementById('alert');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // 输入元素
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        const displayNameInput = document.getElementById('display_name');
+        const passwordInput = document.getElementById('password');
+        const confirmInput = document.getElementById('confirm_password');
+        
+        // 验证图标
+        const usernameIcon = document.getElementById('usernameIcon');
+        const emailIcon = document.getElementById('emailIcon');
+        const confirmIcon = document.getElementById('confirmIcon');
+        
+        // 错误消息
+        const usernameError = document.getElementById('usernameError');
+        const emailError = document.getElementById('emailError');
+        const displayNameError = document.getElementById('displayNameError');
+        const passwordError = document.getElementById('passwordError');
+        const confirmError = document.getElementById('confirmError');
+        
+        // 密码强度
+        const strengthBar = document.getElementById('strengthBar');
+        const passwordHint = document.getElementById('passwordHint');
+        
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // 显示/隐藏错误
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+        
+        function hideError(element) {
+            element.classList.remove('show');
+        }
+        
+        // 设置验证状态
+        function setValidation(input, icon, isValid) {
+            input.classList.remove('error', 'success');
+            if (isValid === true) {
+                input.classList.add('success');
+                icon.textContent = '✓';
+                icon.style.color = 'var(--success)';
+            } else if (isValid === false) {
+                input.classList.add('error');
+                icon.textContent = '✗';
+                icon.style.color = 'var(--destructive)';
+            } else {
+                icon.textContent = '';
+            }
+        }
+        
+        // 验证用户名
+        const validateUsername = debounce(async () => {
+            const username = usernameInput.value.trim();
+            
+            if (!username) {
+                setValidation(usernameInput, usernameIcon, null);
+                hideError(usernameError);
+                return;
+            }
+            
+            if (username.length < 3) {
+                setValidation(usernameInput, usernameIcon, false);
+                showError(usernameError, '用户名至少需要 3 个字符');
+                return;
+            }
+            
+            if (username.length > 32) {
+                setValidation(usernameInput, usernameIcon, false);
+                showError(usernameError, '用户名不能超过 32 个字符');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                setValidation(usernameInput, usernameIcon, false);
+                showError(usernameError, '用户名只能包含字母、数字和下划线');
+                return;
+            }
+            
+            // 检查用户名是否可用
+            try {
+                const response = await fetch('/api/check-username', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await response.json();
+                
+                if (data.available) {
+                    setValidation(usernameInput, usernameIcon, true);
+                    hideError(usernameError);
+                } else {
+                    setValidation(usernameInput, usernameIcon, false);
+                    showError(usernameError, '该用户名已被使用');
+                }
+            } catch (e) {
+                // 网络错误，不显示错误
+                setValidation(usernameInput, usernameIcon, null);
+            }
+        }, 500);
+        
+        // 验证邮箱
+        const validateEmail = debounce(async () => {
+            const email = emailInput.value.trim();
+            
+            if (!email) {
+                setValidation(emailInput, emailIcon, null);
+                hideError(emailError);
+                return;
+            }
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                setValidation(emailInput, emailIcon, false);
+                showError(emailError, '请输入有效的邮箱地址');
+                return;
+            }
+            
+            // 检查邮箱是否可用
+            try {
+                const response = await fetch('/api/check-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                
+                if (data.available) {
+                    setValidation(emailInput, emailIcon, true);
+                    hideError(emailError);
+                } else {
+                    setValidation(emailInput, emailIcon, false);
+                    showError(emailError, '该邮箱已被注册');
+                }
+            } catch (e) {
+                setValidation(emailInput, emailIcon, null);
+            }
+        }, 500);
+        
+        // 计算密码强度
+        function checkPasswordStrength(password) {
+            let strength = 0;
+            
+            if (password.length >= 6) strength++;
+            if (password.length >= 10) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/\d/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+            
+            return Math.min(strength, 3);
+        }
+        
+        // 验证密码
+        function validatePassword() {
+            const password = passwordInput.value;
+            
+            if (!password) {
+                strengthBar.className = 'bar';
+                passwordHint.textContent = '密码强度：未输入';
+                hideError(passwordError);
+                return;
+            }
+            
+            if (password.length < 6) {
+                strengthBar.className = 'bar weak';
+                passwordHint.textContent = '密码强度：太短';
+                showError(passwordError, '密码至少需要 6 个字符');
+                return;
+            }
+            
+            hideError(passwordError);
+            
+            const strength = checkPasswordStrength(password);
+            if (strength <= 1) {
+                strengthBar.className = 'bar weak';
+                passwordHint.textContent = '密码强度：弱';
+            } else if (strength === 2) {
+                strengthBar.className = 'bar medium';
+                passwordHint.textContent = '密码强度：中等';
+            } else {
+                strengthBar.className = 'bar strong';
+                passwordHint.textContent = '密码强度：强';
+            }
+            
+            // 同时验证确认密码
+            validateConfirmPassword();
+        }
+        
+        // 验证确认密码
+        function validateConfirmPassword() {
+            const password = passwordInput.value;
+            const confirm = confirmInput.value;
+            
+            if (!confirm) {
+                setValidation(confirmInput, confirmIcon, null);
+                hideError(confirmError);
+                return;
+            }
+            
+            if (password !== confirm) {
+                setValidation(confirmInput, confirmIcon, false);
+                showError(confirmError, '两次输入的密码不一致');
+            } else {
+                setValidation(confirmInput, confirmIcon, true);
+                hideError(confirmError);
+            }
+        }
+        
+        // 验证显示名称
+        function validateDisplayName() {
+            const displayName = displayNameInput.value.trim();
+            
+            if (!displayName) {
+                hideError(displayNameError);
+                return;
+            }
+            
+            if (displayName.length > 64) {
+                showError(displayNameError, '显示名称不能超过 64 个字符');
+            } else {
+                hideError(displayNameError);
+            }
+        }
+        
+        // 绑定事件
+        usernameInput.addEventListener('input', validateUsername);
+        emailInput.addEventListener('input', validateEmail);
+        passwordInput.addEventListener('input', validatePassword);
+        confirmInput.addEventListener('input', validateConfirmPassword);
+        displayNameInput.addEventListener('input', validateDisplayName);
+        
+        // 显示提示
+        function showAlert(message, type) {
+            alert.textContent = message;
+            alert.className = `alert show alert-${type}`;
+        }
+        
+        function hideAlert() {
+            alert.className = 'alert';
+        }
+        
+        // 表单提交
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+            
+            const username = usernameInput.value.trim();
+            const email = emailInput.value.trim();
+            const displayName = displayNameInput.value.trim();
+            const password = passwordInput.value;
+            const confirm = confirmInput.value;
+            
+            // 前端验证
+            if (!username || !email || !displayName || !password || !confirm) {
+                showAlert('请填写所有必填字段', 'error');
+                return;
+            }
+            
+            if (password !== confirm) {
+                showAlert('两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showAlert('密码至少需要 6 个字符', 'error');
+                return;
+            }
+            
+            // 提交注册
+            submitBtn.disabled = true;
+            submitBtn.classList.add('btn-loading');
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email,
+                        display_name: displayName,
+                        password,
+                    }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('注册成功！正在跳转到登录页面...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                } else {
+                    showAlert(data.detail || '注册失败，请稍后重试', 'error');
+                }
+            } catch (e) {
+                showAlert('网络错误，请检查网络连接', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-loading');
+            }
+        });
+    </script>
+</body>
+</html>
+
