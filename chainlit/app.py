@@ -2,11 +2,13 @@
 HKEX Agent - Chainlit Web Interface
 
 港股智能分析系统 Web 界面，基于 Chainlit 构建。
+支持对话历史持久化和恢复。
 """
 
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 # 获取项目根目录
 project_root = Path(__file__).parent.parent.resolve()
@@ -19,11 +21,80 @@ sys.path.insert(0, str(project_root))
 os.chdir(project_root)
 
 import chainlit as cl
+from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.cli.config import create_model
 from src.agents.main_agent import create_hkex_agent
+
+# ============== 数据持久化配置 ==============
+# 使用 SQLite 存储对话历史
+DB_PATH = project_root / "chainlit_data" / "chat_history.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+@cl.data_layer
+def get_data_layer():
+    """配置 SQLite 数据持久化层。"""
+    return SQLAlchemyDataLayer(
+        conninfo=f"sqlite+aiosqlite:///{DB_PATH}",
+        auto_upgrade=True,  # 自动创建/升级数据库表
+    )
+
+
+# ============== 简单用户认证 ==============
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+    """
+    简单密码认证。
+    
+    默认用户：
+    - 用户名: admin, 密码: admin (管理员)
+    - 用户名: user, 密码: user (普通用户)
+    
+    可以通过环境变量 CHAINLIT_AUTH_SECRET 设置自定义密钥。
+    """
+    # 简单的用户验证（生产环境应使用更安全的方式）
+    users = {
+        "admin": {"password": "admin", "role": "admin"},
+        "user": {"password": "user", "role": "user"},
+    }
+    
+    if username in users and users[username]["password"] == password:
+        return cl.User(
+            identifier=username,
+            metadata={"role": users[username]["role"], "provider": "credentials"}
+        )
+    return None
+
+
+# ============== 对话恢复 ==============
+@cl.on_chat_resume
+async def on_chat_resume(thread: dict):
+    """恢复历史对话时的处理。"""
+    # 创建模型和 Agent
+    try:
+        model = create_model()
+        enable_mcp = os.getenv("ENABLE_MCP", "false").lower() == "true"
+        
+        agent = await create_hkex_agent(
+            model=model,
+            assistant_id=thread["id"],
+            enable_mcp=enable_mcp,
+        )
+        
+        cl.user_session.set("agent", agent)
+        cl.user_session.set("thread_id", thread["id"])
+        
+        await cl.Message(
+            content=f"📂 已恢复对话: **{thread.get('name', '未命名对话')}**\n\n继续您的分析..."
+        ).send()
+        
+    except Exception as e:
+        await cl.Message(
+            content=f"❌ **恢复对话失败**\n\n```\n{str(e)}\n```"
+        ).send()
 
 
 @cl.on_chat_start

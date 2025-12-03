@@ -24,6 +24,8 @@ dependencies = [
     "python-dotenv",
     "markdownify>=0.13.0",
     "chainlit>=2.9.2",
+    "aiosqlite>=0.21.0",
+    "sqlalchemy>=2.0.44",
 ]
 
 
