@@ -16,15 +16,18 @@ import ssl
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 
-def sanitize_filename(filename: str, max_length: int = 200) -> str:
-    """Sanitize filename by removing special characters.
+def sanitize_filename(filename: str, max_bytes: int = 200) -> str:
+    """Sanitize filename by removing special characters and limiting byte length.
+
+    File systems typically limit filename length by bytes (255 for most),
+    not characters. Chinese characters are 3-4 bytes each in UTF-8.
 
     Args:
         filename: Original filename.
-        max_length: Maximum filename length.
+        max_bytes: Maximum filename length in bytes (default 200, safe for all filesystems).
 
     Returns:
-        Sanitized filename.
+        Sanitized filename within byte limit.
     """
     # Remove or replace special characters
     filename = re.sub(r'[/\\:*?"<>|]', "-", filename)
@@ -33,13 +36,34 @@ def sanitize_filename(filename: str, max_length: int = 200) -> str:
     # Remove leading/trailing dashes
     filename = filename.strip("-")
 
-    # Truncate if too long
-    if len(filename) > max_length:
-        name, ext = os.path.splitext(filename)
-        max_name_length = max_length - len(ext) - 3  # Reserve space for "..."
-        filename = name[:max_name_length] + "..." + ext
+    # Truncate by byte length (filesystem limit is typically 255 bytes)
+    encoded = filename.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return filename
 
-    return filename
+    # Need to truncate - split into name and extension
+    name, ext = os.path.splitext(filename)
+    ext_bytes = ext.encode("utf-8")
+    suffix = "..."
+    suffix_bytes = suffix.encode("utf-8")
+    
+    # Calculate max bytes for name part
+    max_name_bytes = max_bytes - len(ext_bytes) - len(suffix_bytes)
+    
+    if max_name_bytes <= 0:
+        # Extension too long, just truncate everything
+        max_name_bytes = max_bytes - len(suffix_bytes)
+        ext = ""
+    
+    # Truncate name by bytes while preserving valid UTF-8
+    name_encoded = name.encode("utf-8")
+    if len(name_encoded) > max_name_bytes:
+        # Truncate and ensure we don't split a multi-byte character
+        truncated = name_encoded[:max_name_bytes]
+        # Decode with errors='ignore' to drop incomplete multi-byte sequences
+        name = truncated.decode("utf-8", errors="ignore")
+    
+    return name + suffix + ext
 
 
 def format_date_for_filename(date_time_str: str) -> str:
