@@ -3,16 +3,21 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Upstream Sync](https://img.shields.io/badge/upstream-synced%202025--11--25-brightgreen.svg)](https://github.com/langchain-ai/deepagents)
+[![Upstream Sync](https://img.shields.io/badge/upstream-synced%202025--12--04-brightgreen.svg)](https://github.com/langchain-ai/deepagents)
 
 基于 Deep Agents 框架开发的港股交易数据分析智能代理系统，专门用于处理港交所公告、PDF 文档解析和智能摘要生成。
 
-**最近更新** (2025-11-25):
+**最近更新** (2025-12-04):
+- 🎯 **提示词优化**：移除与框架中间件重复的指令，集成Skills系统和上下文管理说明
+- 🛠️ **Skills文件修正**：修复工具参数名称、移除不存在参数、统一输出路径
+- 🔧 **Skills路由修复**：修复Agent无法读取 `~/.hkex-agent/*/skills/` 目录的问题
+
+**历史更新** (2025-11-25):
 - 🔄 **上游同步**：上下文窗口分数、工具返回字符串优化、Windows路径修复
 - 📦 **依赖升级**：langchain 1.1.0, langchain-core 1.1.0, langchain-anthropic 1.2.0
 - 🛡️ **安全增强**：拒绝Windows绝对路径，防止静默数据损坏
 
-**历史更新** (2025-11-20):
+**更早更新** (2025-11-20):
 - 🎯 **Skills系统集成**：可重用的领域知识模块，渐进式披露，标准化分析流程
 - 🧠 **双范围内存**：用户级和项目级分离的Agent记忆系统
 - 📚 详见 [Skills系统最终状态报告](docs/SKILLS_MERGE_FINAL_STATUS.md)

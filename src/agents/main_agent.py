@@ -99,14 +99,24 @@ async def create_hkex_agent(
         root_dir=md_dir, virtual_mode=True
     )
 
+    # Skills backend - read-only access to skills directory
+    skills_dir = agent_dir / "skills"
+    skills_dir.mkdir(exist_ok=True)
+    skills_backend = FilesystemBackend(
+        root_dir=skills_dir, virtual_mode=True
+    )
+
     # Composite backend with routing
     # Use virtual_mode=True to sandbox paths to cwd (treats /file.txt as cwd/file.txt, not root /file.txt)
+    # Skills route uses absolute path pattern to match skills_dir
+    skills_route = str(skills_dir) + "/"  # e.g., "/Users/xxx/.hkex-agent/hkex-agent/skills/"
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=Path.cwd(), virtual_mode=True),
         routes={
             "/pdf_cache/": pdf_cache_backend,
             "/memories/": memories_backend,
             "/md/": md_backend,
+            skills_route: skills_backend,
         },
     )
 

@@ -56,13 +56,14 @@ Access cached CCASS data from project directories or user memories.
 ```
 
 **For date range tracking:**
-Create a tracking task:
+Create a tracking task using subagent for context isolation:
 ```
 task(
-    description="Track CCASS holdings for stock 00700 from 2025-10-01 to 2025-11-20. Extract top 10 participants and their holding changes.",
-    subagent_type="data-analyzer"
+    description="Track CCASS holdings for stock 00700 from 2025-10-01 to 2025-11-20. Extract top 10 participants and their holding changes. Return a summary table.",
+    subagent_type="general-purpose"
 )
 ```
+> Note: Subagent has same tools as main agent. Use for isolating large analysis tasks.
 
 ### Step 2: Identify Key Participants
 
@@ -162,8 +163,9 @@ Create a structured CCASS analysis report:
 ### Step 6: Save to File
 
 ```
+# Use /md/ directory (project standard)
 write_file(
-    path="ccass_analysis/[stock_code]_[date_range].md",
+    path="/md/[stock_code]-CCASS分析-[date_range].md",
     content="[Report content]"
 )
 ```
@@ -208,9 +210,8 @@ write_file(
 4. Analyze top 10 holders
 5. Calculate changes
 6. Identify patterns (accumulation/distribution)
-7. Create analysis folder: `mkdir ccass_analysis`
-8. Write report: `write_file("ccass_analysis/00700_ccass_report.md", [content])`
-9. Present summary to user
+7. Write report: `write_file("/md/00700-CCASS分析.md", [content])`
+8. Present summary to user
 
 ## Supporting Scripts
 

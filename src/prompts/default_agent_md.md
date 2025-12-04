@@ -190,3 +190,30 @@ A-G 各类数据表格
 | 搜索流程 | `hkex_modules/search_workflow.md` | 完整搜索工作流 |
 | 数据清单 | `hkex_modules/data_extraction_checklist.md` | 七类数据提取项 |
 | 报告模板 | `hkex_modules/report_template.md` | Markdown报告模板 |
+
+---
+
+## 🛠️ 可用技能 (Skills)
+
+以下专业技能可辅助完成复杂分析任务：
+
+| 技能 | 用途 | 适用场景 |
+|------|------|---------|
+| `hkex-announcement` | 港交所公告分析流程 | 供股/配售/全购事件完整分析 |
+| `ccass-tracking` | CCASS持仓追踪分析 | 大股东变动、机构持仓分析 |
+| `financial-metrics` | 财务指标提取和对比 | 财报数据提取、同业对比 |
+
+> 技能目录: `~/.hkex-agent/{agent}/skills/`
+
+---
+
+## 🧠 上下文管理
+
+> **框架特性**: 系统会在对话超过 170k tokens 时自动触发摘要压缩
+
+### 最佳实践
+
+1. **复杂任务使用子代理** - 通过 `task()` 工具委派独立任务，隔离上下文
+2. **大型PDF分页读取** - 使用 `read_file(path, offset=X, limit=Y)` 避免一次性加载
+3. **主动清理** - 上下文使用率 >80% 时建议使用 `/clear` 命令
+4. **利用缓存** - 大型工具结果自动保存到 `/large_tool_results/`，按需读取

@@ -121,19 +121,26 @@ Use this skill when you need to:
 
 1. **Search for results announcements**:
 ```
+# First get current date
+date +%Y%m%d
+
+# Then search (use from_date/to_date, NOT start_date/end_date)
 search_hkex_announcements(
     stock_code="00700",
-    start_date="2025-01-01",
-    end_date="2025-12-31",
-    category="業績"  # Results
+    from_date="20250101",
+    to_date="20251231"
 )
+# Note: Filter by "業績" or "业绩" in title manually from results
 ```
 
 2. **Download PDF**:
 ```
 download_announcement_pdf(
-    announcement_url="[URL]",
-    stock_code="00700"
+    news_id="[NEWS_ID from search results]",
+    pdf_url="[PDF_URL from search results]",
+    stock_code="00700",
+    date_time="[DATE_TIME from search results]",
+    title="[TITLE from search results]"
 )
 ```
 
@@ -343,8 +350,9 @@ Create a comprehensive financial analysis:
 ### Step 7: Save Analysis
 
 ```
+# Use /md/ directory (project standard)
 write_file(
-    path="financial_analysis/[stock_code]_[period].md",
+    path="/md/[stock_code]-财务分析-[period].md",
     content="[Report content]"
 )
 ```
@@ -379,15 +387,15 @@ write_file(
 **User Request**: "分析00700最新业绩公告的财务指标"
 
 **Execution Steps:**
-1. Search for latest results: `search_hkex_announcements("00700", ..., "業績")`
-2. Download PDF: `download_announcement_pdf([URL], "00700")`
-3. Extract financial statements: `extract_pdf_content([PDF])`
-4. Parse key figures from tables
-5. Calculate all metrics (profitability, growth, leverage, liquidity)
-6. Compare with prior period
-7. Benchmark against industry
-8. Create analysis folder: `mkdir financial_analysis`
-9. Write comprehensive report: `write_file("financial_analysis/00700_analysis.md", [content])`
+1. Get current date: `date +%Y%m%d`
+2. Search for latest results: `search_hkex_announcements(stock_code="00700", from_date="20241120", to_date="20251120")`
+3. Filter results for "業績" or "业绩" in title
+4. Download PDF: `download_announcement_pdf(news_id=..., pdf_url=..., stock_code="00700", date_time=..., title=...)`
+5. Extract financial statements: `extract_pdf_content([PDF path])`
+6. Parse key figures from tables
+7. Calculate all metrics (profitability, growth, leverage, liquidity)
+8. Compare with prior period
+9. Write comprehensive report: `write_file("/md/00700-财务分析.md", [content])`
 10. Present key findings to user
 
 ## Supporting Scripts

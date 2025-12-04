@@ -49,19 +49,26 @@ Use this skill when you need to:
 
 1. **Search for announcements** using the search_hkex_announcements tool:
 ```
+# First get current date
+date +%Y%m%d
+
+# Then search (use from_date/to_date, NOT start_date/end_date)
 search_hkex_announcements(
     stock_code="00700",
-    start_date="2025-11-01",
-    end_date="2025-11-20",
-    category="配售"  # or "供股", "业绩"
+    from_date="20251101",
+    to_date="20251120"
 )
+# Note: Filter by keywords manually from results (title field)
 ```
 
 2. **Download the PDF** using download_announcement_pdf:
 ```
 download_announcement_pdf(
-    announcement_url="[URL from search results]",
-    stock_code="00700"
+    news_id="[NEWS_ID from search results]",
+    pdf_url="[PDF_URL from search results]",
+    stock_code="00700",
+    date_time="[DATE_TIME from search results]",
+    title="[TITLE from search results]"
 )
 ```
 
@@ -101,15 +108,11 @@ analyze_pdf_structure(pdf_path="[cached PDF path]")
 
 ### Step 4: Generate Structured Summary
 
-1. **Create analysis folder**:
+**Write summary** using generate_summary_markdown or write_file:
 ```
-mkdir analysis_[stock_code]_[date]
-```
-
-2. **Write summary** using generate_summary_markdown or write_file:
-```
+# Use /md/ directory (project standard)
 write_file(
-    path="analysis_[stock_code]_[date]/summary.md",
+    path="/md/[stock_code]-[event_type]-analysis.md",
     content="[Structured summary with all key metrics]"
 )
 ```
@@ -143,13 +146,14 @@ write_file(
 
 ### Step 5: Comparison (if requested)
 
-Use the task tool to spawn a comparison subagent:
+Use the task tool to spawn a subagent for isolated analysis:
 ```
 task(
-    description="Compare this placement with similar ones from the past 6 months",
-    subagent_type="data-analyzer"
+    description="Compare this placement with similar ones from the past 6 months. Search for placements, download PDFs, extract key metrics, and return a comparison table.",
+    subagent_type="general-purpose"
 )
 ```
+> Note: Subagent has same tools as main agent. Use for context isolation.
 
 ## Best Practices
 
@@ -178,13 +182,15 @@ task(
 **User Request**: "分析00700最新的配售公告"
 
 **Execution Steps:**
-1. Search announcements: `search_hkex_announcements("00700", "2025-11-01", "2025-11-20", "配售")`
-2. Download PDF: `download_announcement_pdf([URL], "00700")`
-3. Extract content: `extract_pdf_content([PDF path])`
-4. Identify key metrics from extracted text/tables
-5. Create analysis folder: `mkdir analysis_00700_placement_2025-11-20`
-6. Write summary: `write_file("analysis_00700_placement_2025-11-20/summary.md", [content])`
-7. Present summary to user
+1. Get current date: `date +%Y%m%d` (e.g., "20251120")
+2. Calculate date range: from_date = 1 year ago, to_date = today
+3. Search announcements: `search_hkex_announcements(stock_code="00700", from_date="20241120", to_date="20251120")`
+4. Filter results for "配售" in title
+5. Download PDF: `download_announcement_pdf(news_id=..., pdf_url=..., stock_code="00700", date_time=..., title=...)`
+6. Extract content: `extract_pdf_content([PDF path])`
+7. Identify key metrics from extracted text/tables
+8. Write summary: `write_file("/md/00700-配售分析.md", [content])`
+9. Present summary to user
 
 ## Supporting Files
 

@@ -1,5 +1,6 @@
 """Summary generation tools for DeepAgents."""
 
+import json
 import os
 import re
 from datetime import datetime
@@ -9,6 +10,29 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.services.pdf_parser import format_date_for_filename
+
+
+def _parse_dict_param(value: dict[str, Any] | str | None) -> dict[str, Any] | None:
+    """Parse a dict parameter that may be passed as JSON string by LLM.
+
+    Args:
+        value: Either a dict, a JSON string, or None.
+
+    Returns:
+        Parsed dictionary or None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
 
 
 def sanitize_filename_for_md(filename: str, max_length: int = 200) -> str:
@@ -44,8 +68,8 @@ def generate_summary_markdown(
     date_time: str,
     output_path: str,
     pdf_path: str | None = None,
-    pdf_content: dict[str, Any] | None = None,
-    announcement_data: dict[str, Any] | None = None,
+    pdf_content: dict[str, Any] | str | None = None,
+    announcement_data: dict[str, Any] | str | None = None,
     summary_sections: list[str] | None = None,
 ) -> dict[str, Any]:
     """Generate a structured Markdown summary document for an HKEX announcement.
@@ -77,6 +101,10 @@ def generate_summary_markdown(
         - sections_included: List of sections included in the summary
     """
     try:
+        # Parse dict parameters (LLM may pass as JSON strings)
+        pdf_content = _parse_dict_param(pdf_content)
+        announcement_data = _parse_dict_param(announcement_data)
+
         # Parse date
         date_str = format_date_for_filename(date_time)
         if not date_str:

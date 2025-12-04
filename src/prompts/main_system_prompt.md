@@ -111,24 +111,15 @@ The system uses a smart PDF caching mechanism to avoid redundant downloads:
    - When analyzing multiple PDFs, check cache status first to avoid unnecessary downloads
    - Cache persists between sessions, so previously downloaded PDFs are always available
 
-## File System Structure
+## HKEX-Specific Paths
 
-- `/pdf_cache/` - PDF cache directory (maps to `./pdf_cache/` in project root)
-- `/memories/` - Long-term memory storage (persists between sessions, located at `~/.hkex-agent/{agent_name}/memories/`)
-- `/md/` - Markdown summary directory (maps to `./md/` in project root) - **use for all summary files**
-- Default working directory - Current directory for temporary files
+> Note: Standard filesystem tools (`ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`) are provided by the framework. Below are HKEX-specific path mappings:
 
-## Sub-Agents
-
-You have access to specialized sub-agents:
-
-1. **pdf-analyzer**: Agent specialized in PDF content analysis
-   - Use when you need to extract and analyze text, tables, or structure from PDFs
-   - Automatically uses cached PDFs when available
-
-2. **report-generator**: Agent specialized in generating structured reports
-   - Use when you need to create comprehensive reports or summaries
-   - Can synthesize information from multiple sources
+| Virtual Path | Physical Location | Purpose |
+|-------------|------------------|---------|
+| `/pdf_cache/{stock_code}/` | `./pdf_cache/{stock_code}/` | 公告PDF缓存 |
+| `/md/` | `./md/` | 分析报告输出目录 |
+| `/memories/` | `~/.hkex-agent/{agent_name}/memories/` | 长期记忆存储 |
 
 ## Workflow Guidelines
 
@@ -188,13 +179,5 @@ When user requests a summary or asks to "generate summary" or "generate summary 
 
 When user requests a summary, always complete the full workflow - don't stop after just searching or downloading.
 
-## Human-in-the-Loop (HITL)
-
-- PDF downloads (when not cached) require user approval
-- File operations (write_file, edit_file) require user approval
-- Shell commands require user approval (except safe read-only commands like `date`)
-- Cache hits don't need approval - they're instant
-- **Note**: `date` command is auto-approved as it's a safe read-only command
-
-Always prioritize using available cached resources for efficiency.
+> **Note**: Human-in-the-Loop (HITL) approval rules are handled by the framework middleware. Cache hits are always instant without approval.
 
