@@ -35,6 +35,29 @@ def _parse_dict_param(value: dict[str, Any] | str | None) -> dict[str, Any] | No
     return None
 
 
+def _parse_list_param(value: list[str] | str | None) -> list[str] | None:
+    """Parse a list parameter that may be passed as JSON string by LLM.
+
+    Args:
+        value: Either a list, a JSON string, or None.
+
+    Returns:
+        Parsed list or None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
 def sanitize_filename_for_md(filename: str, max_length: int = 200) -> str:
     """Sanitize filename for Markdown files.
 
@@ -70,7 +93,7 @@ def generate_summary_markdown(
     pdf_path: str | None = None,
     pdf_content: dict[str, Any] | str | None = None,
     announcement_data: dict[str, Any] | str | None = None,
-    summary_sections: list[str] | None = None,
+    summary_sections: list[str] | str | None = None,
 ) -> dict[str, Any]:
     """Generate a structured Markdown summary document for an HKEX announcement.
 
@@ -101,9 +124,10 @@ def generate_summary_markdown(
         - sections_included: List of sections included in the summary
     """
     try:
-        # Parse dict parameters (LLM may pass as JSON strings)
+        # Parse dict/list parameters (LLM may pass as JSON strings)
         pdf_content = _parse_dict_param(pdf_content)
         announcement_data = _parse_dict_param(announcement_data)
+        summary_sections = _parse_list_param(summary_sections)
 
         # Parse date
         date_str = format_date_for_filename(date_time)
