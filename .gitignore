@@ -225,3 +225,11 @@ md/
 
 # Chainlit data cache
 chainlit_data/
+
+# Temporary/local files
+.env.bak
+siliconflow_balance.py
+
+# Data files (Excel/CSV)
+*.xlsx
+*.csv
