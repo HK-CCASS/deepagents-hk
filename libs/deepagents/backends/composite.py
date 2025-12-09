@@ -460,10 +460,17 @@ class CompositeBackend:
 
             # Place responses at original indices with original paths
             for i, orig_idx in enumerate(indices):
-                results[orig_idx] = FileUploadResponse(
-                    path=files[orig_idx][0],  # Original path
-                    error=batch_responses[i].error if i < len(batch_responses) else None,
-                )
+                if i < len(batch_responses):
+                    results[orig_idx] = FileUploadResponse(
+                        path=files[orig_idx][0],  # Original path
+                        error=batch_responses[i].error,
+                    )
+                else:
+                    # Backend returned fewer responses than expected - this is a bug
+                    results[orig_idx] = FileUploadResponse(
+                        path=files[orig_idx][0],
+                        error="invalid_path",  # Use standardized error code
+                    )
 
         return results  # type: ignore[return-value]
 
@@ -494,10 +501,17 @@ class CompositeBackend:
 
             # Place responses at original indices with original paths
             for i, orig_idx in enumerate(indices):
-                results[orig_idx] = FileUploadResponse(
-                    path=files[orig_idx][0],  # Original path
-                    error=batch_responses[i].error if i < len(batch_responses) else None,
-                )
+                if i < len(batch_responses):
+                    results[orig_idx] = FileUploadResponse(
+                        path=files[orig_idx][0],  # Original path
+                        error=batch_responses[i].error,
+                    )
+                else:
+                    # Backend returned fewer responses than expected - this is a bug
+                    results[orig_idx] = FileUploadResponse(
+                        path=files[orig_idx][0],
+                        error="invalid_path",  # Use standardized error code
+                    )
 
         return results  # type: ignore[return-value]
 
@@ -533,11 +547,19 @@ class CompositeBackend:
 
             # Place responses at original indices with original paths
             for i, orig_idx in enumerate(indices):
-                results[orig_idx] = FileDownloadResponse(
-                    path=paths[orig_idx],  # Original path
-                    content=batch_responses[i].content if i < len(batch_responses) else None,
-                    error=batch_responses[i].error if i < len(batch_responses) else None,
-                )
+                if i < len(batch_responses):
+                    results[orig_idx] = FileDownloadResponse(
+                        path=paths[orig_idx],  # Original path
+                        content=batch_responses[i].content,
+                        error=batch_responses[i].error,
+                    )
+                else:
+                    # Backend returned fewer responses than expected - this is a bug
+                    results[orig_idx] = FileDownloadResponse(
+                        path=paths[orig_idx],
+                        content=None,
+                        error="file_not_found",  # Use standardized error code
+                    )
 
         return results  # type: ignore[return-value]
 
@@ -562,10 +584,18 @@ class CompositeBackend:
 
             # Place responses at original indices with original paths
             for i, orig_idx in enumerate(indices):
-                results[orig_idx] = FileDownloadResponse(
-                    path=paths[orig_idx],  # Original path
-                    content=batch_responses[i].content if i < len(batch_responses) else None,
-                    error=batch_responses[i].error if i < len(batch_responses) else None,
-                )
+                if i < len(batch_responses):
+                    results[orig_idx] = FileDownloadResponse(
+                        path=paths[orig_idx],  # Original path
+                        content=batch_responses[i].content,
+                        error=batch_responses[i].error,
+                    )
+                else:
+                    # Backend returned fewer responses than expected - this is a bug
+                    results[orig_idx] = FileDownloadResponse(
+                        path=paths[orig_idx],
+                        content=None,
+                        error="file_not_found",  # Use standardized error code
+                    )
 
         return results  # type: ignore[return-value]

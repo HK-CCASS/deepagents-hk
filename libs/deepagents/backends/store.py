@@ -400,14 +400,17 @@ class StoreBackend(BackendProtocol):
         responses: list[FileUploadResponse] = []
 
         for path, content in files:
-            content_str = content.decode("utf-8")
-            # Create file data
-            file_data = create_file_data(content_str)
-            store_value = self._convert_file_data_to_store_value(file_data)
+            try:
+                content_str = content.decode("utf-8")
+                # Create file data
+                file_data = create_file_data(content_str)
+                store_value = self._convert_file_data_to_store_value(file_data)
 
-            # Store the file
-            store.put(namespace, path, store_value)
-            responses.append(FileUploadResponse(path=path, error=None))
+                # Store the file
+                store.put(namespace, path, store_value)
+                responses.append(FileUploadResponse(path=path, error=None))
+            except UnicodeDecodeError:
+                responses.append(FileUploadResponse(path=path, error="invalid_path"))
 
         return responses
 
