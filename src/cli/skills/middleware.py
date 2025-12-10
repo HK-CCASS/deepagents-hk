@@ -80,12 +80,20 @@ Skills follow a **progressive disclosure** pattern - you know they exist (name +
 Skills may contain Python scripts or other executable files. Always use absolute paths:
 Example: `bash python {skills_dir_absolute}/web-research/fetch_data.py`
 
+**⚠️ IMPORTANT: Always Read Complete SKILL.md Files**
+
+When reading a skill's SKILL.md file, you MUST read the **entire file** without pagination:
+- ✅ CORRECT: `read_file('{skills_dir_absolute}/skill-name/SKILL.md', limit=2000)`
+- ❌ WRONG: `read_file('{skills_dir_absolute}/skill-name/SKILL.md', limit=100)` (misses most content!)
+
+SKILL.md files contain critical frameworks, formulas, and analysis workflows. Reading only the first 100 lines will miss essential information.
+
 **Example Workflow:**
 
 User: "Can you research the latest developments in quantum computing?"
 
 1. Check available skills above → See "web-research" skill with its full path
-2. Read the skill using the path shown: `read_file '{skills_dir_absolute}/web-research/SKILL.md'`
+2. Read the **complete** skill: `read_file('{skills_dir_absolute}/web-research/SKILL.md', limit=2000)`
 3. Follow the skill's research workflow (search → organize → synthesize)
 4. Use any helper scripts with absolute paths: `bash python {skills_dir_absolute}/web-research/script.py`
 

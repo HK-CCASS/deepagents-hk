@@ -18,7 +18,7 @@ class SubAgentModelConfig:
     
     环境变量:
         SILICONFLOW_API_KEY: 硅基流动API密钥（必填）
-        SILICONFLOW_MODEL: 主Agent模型（可选，默认：deepseek-chat）
+        SILICONFLOW_MODEL: 主Agent模型（可选，默认：deepseek-ai/DeepSeek-V3.2）
         SILICONFLOW_PDF_MODEL: PDF分析子Agent模型（可选）
         SILICONFLOW_REPORT_MODEL: 报告生成子Agent模型（可选）
     
@@ -26,27 +26,27 @@ class SubAgentModelConfig:
         >>> from config.agent_config import agent_model_config
         >>> print(agent_model_config.get_model_summary())
         {
-            "main_agent": "deepseek-chat",
-            "pdf_analyzer": "Qwen/Qwen2.5-7B-Instruct",
-            "report_generator": "Qwen/Qwen2.5-72B-Instruct"
+            "main_agent": "deepseek-ai/DeepSeek-V3.2",
+            "pdf_analyzer": "deepseek-ai/DeepSeek-V3.2",
+            "report_generator": "deepseek-ai/DeepSeek-V3.2"
         }
     """
     
     # 主Agent模型
-    main_model: str = "deepseek-chat"  # DeepSeek-V3, ¥1.33/百万tokens
+    main_model: str = "deepseek-ai/DeepSeek-V3.2"  # DeepSeek-V3, ¥1.33/百万tokens
     
     # PDF分析子Agent（轻量任务，适合文本提取）
-    pdf_analyzer_model: Optional[str] = "Qwen/Qwen2.5-7B-Instruct"  # ¥0.42/百万tokens
+    pdf_analyzer_model: Optional[str] = "deepseek-ai/DeepSeek-V3.2"  # ¥0.42/百万tokens
     
     # 报告生成子Agent（高质量输出）
-    report_generator_model: Optional[str] = "Qwen/Qwen2.5-72B-Instruct"  # ¥3.5/百万tokens
+    report_generator_model: Optional[str] = "deepseek-ai/DeepSeek-V3.2"  # ¥3.5/百万tokens
     
     # 硅基流动配置
     siliconflow_api_key: Optional[str] = None
     siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
     
     # 模型参数配置
-    temperature: float = 0.7  # 温度参数 (0.0-1.0)，控制输出随机性
+    temperature: float = 0.3  # 温度参数 (0.0-1.0)，控制输出随机性
     max_tokens: int = 20000   # 最大输出token数
     top_p: Optional[float] = None  # Top-p采样参数 (0.0-1.0)
     frequency_penalty: Optional[float] = None  # 频率惩罚 (-2.0-2.0)
@@ -104,7 +104,7 @@ class SubAgentModelConfig:
         """创建模型实例.
         
         Args:
-            model_name: 模型名称（如: "Qwen/Qwen2.5-7B-Instruct"）
+            model_name: 模型名称（如: "deepseek-ai/DeepSeek-V3.2"）
             temperature: 温度参数（可选），不指定则使用配置的默认值
             max_tokens: 最大token数（可选），不指定则使用配置的默认值
             **kwargs: 其他参数（top_p, frequency_penalty等）
@@ -171,9 +171,9 @@ class SubAgentModelConfig:
         """
         # 价格表 (¥/百万tokens)
         prices = {
-            "deepseek-chat": 1.33,
-            "Qwen/Qwen2.5-7B-Instruct": 0.42,
-            "Qwen/Qwen2.5-72B-Instruct": 3.5,
+            "deepseek-ai/DeepSeek-V3.2": 1.33,
+            "deepseek-ai/DeepSeek-V3.2": 0.42,
+            "deepseek-ai/DeepSeek-V3.2": 3.5,
         }
         
         # 假设每次调用平均1k tokens
@@ -205,12 +205,12 @@ class SubAgentModelConfig:
 MODEL_CONTEXT_LIMITS = {
     # SiliconFlow 模型
     # 注意：SiliconFlow 的实际限制比官方标称值略低
-    "deepseek-chat": 163840,  # DeepSeek-V3 (SiliconFlow 实际限制)
+    "deepseek-ai/DeepSeek-V3.2": 163840,  # DeepSeek-V3 (SiliconFlow 实际限制)
     "deepseek-ai/DeepSeek-V3.1-Terminus": 163840,  # DeepSeek-V3.1 (SiliconFlow)
     "deepseek-reasoner": 163840,  # DeepSeek-R1 (SiliconFlow)
-    "Qwen/Qwen2.5-7B-Instruct": 32768,  # Qwen 7B
+    "deepseek-ai/DeepSeek-V3.2": 32768,  # Qwen 7B
     "Qwen/Qwen2.5-32B-Instruct": 131072,  # Qwen 32B
-    "Qwen/Qwen2.5-72B-Instruct": 131072,  # Qwen 72B
+    "deepseek-ai/DeepSeek-V3.2": 131072,  # Qwen 72B
     "internlm/internlm2_5-7b-chat": 32768,  # InternLM 7B
     "MiniMaxAI/MiniMax-M2":186000,  # MiniMax M2
     
