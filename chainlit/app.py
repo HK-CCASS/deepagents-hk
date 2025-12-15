@@ -1114,6 +1114,8 @@ async def on_settings_update(settings: dict):
             settings["api_url"] = llm_config.api_url
             settings["model"] = llm_config.model
             settings["api_protocol"] = llm_config.protocol
+            # ⚠️ 重要：清空 custom_model，否则 get_effective_model() 会返回旧值
+            settings["custom_model"] = None
             preset_applied = True
             
             # 保存当前选中的配置 ID，供 Action 使用

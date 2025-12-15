@@ -559,7 +559,7 @@ class ConfigStorage:
         except Exception as e:
             print(f"删除 LLM 配置失败: {e}")
             return False
-    
+
     async def get_llm_config_by_name(self, user_id: str, name: str) -> Optional[LLMConfig]:
         """按名称获取用户的 LLM 配置.
         
