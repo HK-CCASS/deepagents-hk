@@ -1017,22 +1017,13 @@ async def on_settings_update(settings: dict):
         ).send()
         return
     
-    # 检查 provider 是否变更
-    provider_changed = new_config.provider != current_config.provider
-    
-    # 如果 provider 变更，重置模型
-    if provider_changed:
-        models = get_models_for_provider(new_config.provider)
-        if models:
-            new_config.model = models[0]["id"]
-    
     # 保存配置
     await config_storage.save_config(user_id, new_config)
     cl.user_session.set("config", new_config)
     
     # 刷新设置面板（显示新保存的 LLM 配置）
     llm_configs = await config_storage.get_user_llm_configs(user_id)
-    need_refresh = provider_changed or save_llm_name or (llm_preset and llm_preset != "(手动输入)")
+    need_refresh = save_llm_name or (llm_preset and llm_preset != "(手动输入)")
     if need_refresh:
         # 传递当前选择的预设，保持选中状态
         settings_widgets = build_settings_widgets(new_config, llm_configs, selected_preset=llm_preset)
@@ -1052,12 +1043,14 @@ async def on_settings_update(settings: dict):
         cl.user_session.set("agent", agent)
         
         # 显示更新成功消息
-        provider_name = APIProvider.display_names().get(new_config.provider, new_config.provider)
+        protocol_display = new_config.api_protocol.upper() if new_config.api_protocol else "OpenAI"
+        api_url_display = new_config.api_url or "(默认)"
         
         await cl.Message(
             content=f"✅ **配置已更新**\n\n"
-                    f"📡 Provider: {provider_name}\n"
-                    f"🤖 模型: {new_config.get_model_display_name()}\n"
+                    f"📡 Protocol: {protocol_display}\n"
+                    f"🌐 API URL: `{api_url_display}`\n"
+                    f"🤖 模型: `{new_config.model}`\n"
                     f"📊 参数: T={new_config.temperature}, {new_config.max_tokens//1000}K, P={new_config.top_p}",
             author="system",
         ).send()
