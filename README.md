@@ -7,7 +7,12 @@
 
 基于 Deep Agents 框架开发的港股交易数据分析智能代理系统，专门用于处理港交所公告、PDF 文档解析和智能摘要生成。
 
-**最近更新** (2025-12-03):
+**最近更新** (2025-12-15):
+- 💾 **LLM 配置管理**：新增自定义 LLM 配置保存/加载功能，支持保存多套 API 配置（Key、URL、Model、Protocol），一键切换不同模型
+- 📡 **多协议支持**：支持 OpenAI 和 Anthropic 两种 API 协议，可在设置面板中切换
+- 🔧 **设置面板增强**：简化 API 配置为 4 个核心字段（API Key、URL、Model、Protocol），移除冗余选项
+
+**历史更新** (2025-12-03):
 - 🌐 **OpenRouter 支持**：新增 OpenRouter 作为 API Provider，支持通过单一接口访问 Claude、GPT、Gemini、DeepSeek 等多模型
 - 📊 **Excel 上传支持**：Web 界面新增 xlsx/xls 文件上传功能，可上传分析 Excel 数据
 - 🎯 **设置面板简化**：移除场景系统，简化为直接编辑系统提示词
@@ -190,18 +195,18 @@ docker compose down
 
 | 配置项 | 类型 | 说明 |
 |--------|------|------|
-| API Provider | 下拉选择 | SiliconFlow / OpenAI / Anthropic / OpenRouter |
-| 模型 | 下拉选择 | 按 Provider 动态加载可用模型 |
-| 自定义模型 | 文本输入 | 输入任意模型名称（优先于下拉选择） |
-| API Key | 文本输入 | 可选覆盖环境变量 |
-| Temperature | 滑块 | 0.0 - 1.5 (控制输出随机性) |
-| Max Tokens | 文本输入 | 最大输出 Token 数（支持自定义值） |
+| 💾 已保存的配置 | 下拉选择 | 选择已保存的 LLM 配置，或手动输入 |
+| 🔑 API Key | 文本输入 | API 密钥 |
+| 🌐 API URL | 文本输入 | API 地址（如 `https://api.siliconflow.cn/v1`） |
+| 🤖 Model | 文本输入 | 模型名称（如 `deepseek-chat`） |
+| 📡 Protocol | 下拉选择 | API 协议：`openai` 或 `anthropic` |
+| 💾 保存配置名称 | 文本输入 | 填写名称保存当前配置（可选） |
+| 📝 系统提示词 | 文本输入 | 自定义 Agent 行为 |
+| 📊 Temperature | 滑块 | 0.0 - 1.5 (控制输出随机性) |
+| Max Tokens | 文本输入 | 最大输出 Token 数 |
 | Top P | 滑块 | 0.1 - 1.0 (核采样参数) |
-| 启用 MCP | 开关 | MCP 集成开关 |
+| ⚙️ 启用 MCP | 开关 | MCP 集成开关 |
 | 自动审批 | 开关 | 自动执行工具调用（默认开启） |
-| 显示下载链接 | 开关 | 生成文件时显示下载按钮（默认开启） |
-| 系统提示词 | 文本输入 | 自定义 Agent 行为 |
-| 配置预设 | 下拉选择 | 快速切换配置模板 |
 | 🔌 测试连接 | 开关 | 开启后点击确认，验证模型是否可用 |
 
 **配置预设模板**：

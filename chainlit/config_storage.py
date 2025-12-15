@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import aiosqlite
 
-from config_models import UserConfig, get_default_config, UserScene
+from config_models import UserConfig, get_default_config, UserScene, LLMConfig
 
 # 兼容别名
 UserPreset = UserScene
@@ -97,6 +97,24 @@ class ConfigStorage:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_user_presets_user_id 
                 ON user_presets(user_id)
+            """)
+            # 用户自定义 LLM 配置表
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS llm_configs (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    api_key TEXT NOT NULL,
+                    api_url TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    protocol TEXT DEFAULT 'openai',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_llm_configs_user_id 
+                ON llm_configs(user_id)
             """)
             # 创建更新时间触发器
             try:
@@ -413,6 +431,134 @@ class ConfigStorage:
         except Exception as e:
             print(f"获取用户场景列表失败: {e}")
             return []
+    
+    # ============== LLM 配置管理 ==============
+    
+    async def save_llm_config(self, llm_config: LLMConfig) -> bool:
+        """保存 LLM 配置.
+        
+        Args:
+            llm_config: LLM 配置对象
+            
+        Returns:
+            是否保存成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    INSERT INTO llm_configs (id, user_id, name, api_key, api_url, model, protocol)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name,
+                        api_key = excluded.api_key,
+                        api_url = excluded.api_url,
+                        model = excluded.model,
+                        protocol = excluded.protocol,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (
+                    llm_config.id,
+                    llm_config.user_id,
+                    llm_config.name,
+                    llm_config.api_key,
+                    llm_config.api_url,
+                    llm_config.model,
+                    llm_config.protocol,
+                ))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"保存 LLM 配置失败: {e}")
+            return False
+    
+    async def get_llm_config(self, config_id: str) -> Optional[LLMConfig]:
+        """获取单个 LLM 配置.
+        
+        Args:
+            config_id: 配置 ID
+            
+        Returns:
+            LLM 配置对象，不存在则返回 None
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    "SELECT * FROM llm_configs WHERE id = ?",
+                    (config_id,)
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return LLMConfig(
+                            id=row["id"],
+                            user_id=row["user_id"],
+                            name=row["name"],
+                            api_key=row["api_key"],
+                            api_url=row["api_url"],
+                            model=row["model"],
+                            protocol=row["protocol"],
+                            created_at=row["created_at"],
+                            updated_at=row["updated_at"],
+                        )
+            return None
+        except Exception as e:
+            print(f"获取 LLM 配置失败: {e}")
+            return None
+    
+    async def get_user_llm_configs(self, user_id: str) -> List[LLMConfig]:
+        """获取用户的所有 LLM 配置.
+        
+        Args:
+            user_id: 用户 ID
+            
+        Returns:
+            LLM 配置列表
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    "SELECT * FROM llm_configs WHERE user_id = ? ORDER BY created_at DESC",
+                    (user_id,)
+                ) as cursor:
+                    rows = await cursor.fetchall()
+                    return [
+                        LLMConfig(
+                            id=row["id"],
+                            user_id=row["user_id"],
+                            name=row["name"],
+                            api_key=row["api_key"],
+                            api_url=row["api_url"],
+                            model=row["model"],
+                            protocol=row["protocol"],
+                            created_at=row["created_at"],
+                            updated_at=row["updated_at"],
+                        )
+                        for row in rows
+                    ]
+        except Exception as e:
+            print(f"获取用户 LLM 配置列表失败: {e}")
+            return []
+    
+    async def delete_llm_config(self, config_id: str) -> bool:
+        """删除 LLM 配置.
+        
+        Args:
+            config_id: 配置 ID
+            
+        Returns:
+            是否删除成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute(
+                    "DELETE FROM llm_configs WHERE id = ?",
+                    (config_id,)
+                )
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"删除 LLM 配置失败: {e}")
+            return False
 
 
 # 全局配置存储实例（延迟初始化）

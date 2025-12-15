@@ -41,6 +41,7 @@ from local_storage import LocalStorageClient
 from config_models import (
     UserConfig,
     UserScene,
+    LLMConfig,
     APIProvider,
     MODEL_PRESETS,
     BUILTIN_SCENES,
@@ -603,79 +604,46 @@ def create_model_from_config(config: UserConfig):
     Returns:
         LangChain Chat 模型实例
     """
-    # 获取实际使用的模型名称（自定义优先）
+    # 获取实际使用的配置
     effective_model = config.get_effective_model()
+    api_key = config.get_effective_api_key()
+    api_url = config.get_effective_api_url()
+    api_protocol = getattr(config, 'api_protocol', 'openai') or 'openai'
     
-    # 获取 API Key（优先使用用户配置，否则使用环境变量）
-    if config.provider == APIProvider.SILICONFLOW.value:
-        api_key = config.api_key_override or os.environ.get("SILICONFLOW_API_KEY")
-        if not api_key:
-            raise ValueError("未配置 SiliconFlow API Key")
-        
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=effective_model,
-            base_url="https://api.siliconflow.cn/v1",
-            api_key=api_key,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            frequency_penalty=config.frequency_penalty,
-            presence_penalty=config.presence_penalty,
-        )
+    if not api_key:
+        raise ValueError("未配置 API Key，请在设置面板中填写")
     
-    elif config.provider == APIProvider.OPENAI.value:
-        api_key = config.api_key_override or os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("未配置 OpenAI API Key")
-        
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=effective_model,
-            api_key=api_key,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            frequency_penalty=config.frequency_penalty,
-            presence_penalty=config.presence_penalty,
-        )
-    
-    elif config.provider == APIProvider.ANTHROPIC.value:
-        api_key = config.api_key_override or os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("未配置 Anthropic API Key")
-        
+    # 根据协议选择不同的 LLM 类
+    if api_protocol == "anthropic":
         from langchain_anthropic import ChatAnthropic
-        return ChatAnthropic(
-            model_name=effective_model,
-            api_key=api_key,
-            max_tokens=config.max_tokens,
-            # Anthropic 不支持 top_p 等参数
-        )
-    
-    elif config.provider == APIProvider.OPENROUTER.value:
-        api_key = config.api_key_override or os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
-            raise ValueError("未配置 OpenRouter API Key")
         
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=effective_model,
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            frequency_penalty=config.frequency_penalty,
-            presence_penalty=config.presence_penalty,
-            default_headers={
-                "HTTP-Referer": "https://github.com/deepagents-hk",
-                "X-Title": "HKEX Agent",
-            },
-        )
-    
+        llm_kwargs = {
+            "model": effective_model,
+            "api_key": api_key,
+            "max_tokens": config.max_tokens,
+        }
+        if api_url:
+            llm_kwargs["base_url"] = api_url
+        
+        return ChatAnthropic(**llm_kwargs)
     else:
-        raise ValueError(f"不支持的 API Provider: {config.provider}")
+        # 默认使用 OpenAI 协议
+        from langchain_openai import ChatOpenAI
+        
+        llm_kwargs = {
+            "model": effective_model,
+            "api_key": api_key,
+            "temperature": config.temperature,
+            "max_tokens": config.max_tokens,
+            "top_p": config.top_p,
+            "frequency_penalty": config.frequency_penalty,
+            "presence_penalty": config.presence_penalty,
+        }
+        
+        if api_url:
+            llm_kwargs["base_url"] = api_url
+        
+        return ChatOpenAI(**llm_kwargs)
 
 
 def get_all_scenes(user_scenes: list = None) -> dict:
@@ -694,55 +662,87 @@ def get_all_scenes(user_scenes: list = None) -> dict:
     return all_scenes
 
 
-def build_settings_widgets(config: UserConfig) -> list:
+def build_settings_widgets(config: UserConfig, llm_configs: list = None, selected_preset: str = None) -> list:
     """构建设置面板组件 - 简洁布局.
     
     分为三部分：
-    1. API/模型 - 选择Provider和模型
+    1. API 配置 - LLM 预设选择 + API Key / URL / Model
     2. 提示词 - 系统提示词编辑
     3. 参数 - 模型参数调节
     
     Args:
         config: 当前用户配置
+        llm_configs: 用户保存的 LLM 配置列表
+        selected_preset: 当前选择的预设名称（如 "🤖 配置名称"）
         
     Returns:
         Chainlit 输入组件列表
     """
-    # 获取当前 provider 的模型列表
-    models = get_models_for_provider(config.provider)
-    model_options = [m["id"] for m in models]
+    
+    # 获取有效值（包括环境变量回退）
+    import os
+    effective_api_key = config.api_key or config.api_key_override or os.getenv("CUSTOM_API_KEY") or ""
+    effective_api_url = config.api_url or os.getenv("CUSTOM_API_URL") or "https://api.siliconflow.cn/v1"
+    effective_model = config.model or os.getenv("CUSTOM_API_MODEL") or "deepseek-chat"
+    effective_protocol = config.api_protocol or os.getenv("CUSTOM_API_PROTOCOL") or "openai"
+    
+    # 构建 LLM 预设选项（使用名称作为显示值）
+    llm_preset_values = ["(手动输入)"]
+    if llm_configs:
+        for llm in llm_configs:
+            # 使用 "🤖 配置名称" 格式，方便用户识别
+            llm_preset_values.append(f"🤖 {llm.name}")
+    
+    # 确定初始选择的预设
+    preset_initial = "(手动输入)"
+    if selected_preset and selected_preset in llm_preset_values:
+        preset_initial = selected_preset
     
     return [
         # ═══════════════════════════════════════════
-        # 第一部分：🔧 API/模型
+        # 第一部分：🔧 API 配置
         # ═══════════════════════════════════════════
         Select(
-            id="provider",
-            label="🔧 API Provider",
-            description="选择 AI 模型提供商",
-            values=APIProvider.choices(),
-            initial_value=config.provider,
+            id="llm_preset",
+            label="💾 已保存的配置",
+            description="选择已保存的 LLM 配置，或手动输入",
+            values=llm_preset_values,
+            initial_value=preset_initial,
+        ),
+        TextInput(
+            id="api_key",
+            label="🔑 API Key",
+            description="API 密钥",
+            initial=effective_api_key,
+            placeholder="sk-...",
+        ),
+        TextInput(
+            id="api_url",
+            label="🌐 API URL",
+            description="API 地址",
+            initial=effective_api_url,
+            placeholder="https://api.siliconflow.cn/v1",
+        ),
+        TextInput(
+            id="model",
+            label="🤖 Model",
+            description="模型名称",
+            initial=effective_model,
+            placeholder="deepseek-chat",
         ),
         Select(
-            id="model",
-            label="模型",
-            description="选择预设模型",
-            values=model_options if model_options else ["deepseek-chat"],
-            initial_value=config.model if config.model in model_options else (model_options[0] if model_options else "deepseek-chat"),
+            id="api_protocol",
+            label="📡 Protocol",
+            description="API 协议类型",
+            values=["openai", "anthropic"],
+            initial_value=effective_protocol,
         ),
         TextInput(
-            id="custom_model",
-            label="自定义模型",
-            description="填写后优先使用此模型（可选）",
-            initial=config.custom_model or "",
-            placeholder="例如: anthropic/claude-sonnet-4",
-        ),
-        TextInput(
-            id="api_key_override",
-            label="API Key",
-            description="覆盖环境变量（可选）",
-            initial=config.api_key_override or "",
-            placeholder="sk-...",
+            id="save_llm_name",
+            label="💾 保存配置名称",
+            description="填写名称后将保存当前配置（可选）",
+            initial="",
+            placeholder="例如: Claude Proxy",
         ),
         
         # ═══════════════════════════════════════════
@@ -819,10 +819,20 @@ def settings_to_config(settings: dict, current_config: UserConfig) -> UserConfig
     Returns:
         更新后的 UserConfig 对象
     """
-    # 处理自定义模型
-    custom_model = settings.get("custom_model", current_config.custom_model)
-    if custom_model:
-        custom_model = custom_model.strip() or None
+    # 处理 API 配置 (新简化版)
+    api_key = settings.get("api_key", current_config.api_key)
+    if api_key:
+        api_key = api_key.strip() or None
+    
+    api_url = settings.get("api_url", current_config.api_url)
+    if api_url:
+        api_url = api_url.strip() or None
+    
+    model = settings.get("model", current_config.model)
+    if model:
+        model = model.strip() or current_config.model
+    
+    api_protocol = settings.get("api_protocol", current_config.api_protocol) or "openai"
     
     # 处理 max_tokens
     max_tokens_raw = settings.get("max_tokens", current_config.max_tokens)
@@ -836,10 +846,16 @@ def settings_to_config(settings: dict, current_config: UserConfig) -> UserConfig
     new_system_prompt = edited_prompt if edited_prompt else current_config.system_prompt
     
     return UserConfig(
+        # 新简化版 API 配置
+        api_key=api_key,
+        api_url=api_url,
+        model=model,
+        api_protocol=api_protocol,
+        # 兼容旧配置
         provider=settings.get("provider", current_config.provider),
-        model=settings.get("model", current_config.model),
-        custom_model=custom_model,
+        custom_model=settings.get("custom_model", current_config.custom_model),
         api_key_override=settings.get("api_key_override") or None,
+        # 其他配置
         temperature=settings.get("temperature", current_config.temperature),
         max_tokens=max_tokens,
         top_p=settings.get("top_p", current_config.top_p),
@@ -932,14 +948,65 @@ async def on_settings_update(settings: dict):
     
     当用户在设置面板中修改配置时触发。
     """
+    import uuid
+    
     user = cl.user_session.get("user")
     user_id = user.identifier if user else "anonymous"
     
     # 获取当前配置
     current_config = cl.user_session.get("config") or get_default_config()
     
+    # 处理 LLM 预设选择
+    llm_preset = settings.get("llm_preset", "(手动输入)")
+    preset_applied = False
+    if llm_preset and llm_preset != "(手动输入)":
+        # 从 "🤖 配置名称" 格式提取名称
+        preset_name = llm_preset.replace("🤖 ", "") if llm_preset.startswith("🤖 ") else llm_preset
+        
+        # 通过名称查找 LLM 配置
+        llm_configs = await config_storage.get_user_llm_configs(user_id)
+        llm_config = next((c for c in llm_configs if c.name == preset_name), None)
+        
+        if llm_config:
+            # 用预设值覆盖当前设置
+            settings["api_key"] = llm_config.api_key
+            settings["api_url"] = llm_config.api_url
+            settings["model"] = llm_config.model
+            settings["api_protocol"] = llm_config.protocol
+            preset_applied = True
+            
+            # 显示预设应用提示
+            masked_key = llm_config.api_key[:8] + "..." if llm_config.api_key else "(未设置)"
+            await cl.Message(
+                content=f"📂 **已加载配置**: {preset_name}\n\n"
+                        f"- 🌐 API URL: `{llm_config.api_url or '默认'}`\n"
+                        f"- 🤖 Model: `{llm_config.model}`\n"
+                        f"- 🔑 API Key: `{masked_key}`\n"
+                        f"- 📡 Protocol: `{llm_config.protocol}`",
+                author="system",
+            ).send()
+    
     # 转换设置为配置
     new_config = settings_to_config(settings, current_config)
+    
+    # 处理保存 LLM 配置
+    save_llm_name = (settings.get("save_llm_name") or "").strip()
+    if save_llm_name and new_config.api_key:
+        llm_config = LLMConfig(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            name=save_llm_name,
+            api_key=new_config.api_key,
+            api_url=new_config.api_url or "",
+            model=new_config.model,
+            protocol=new_config.api_protocol or "openai",
+        )
+        saved = await config_storage.save_llm_config(llm_config)
+        if saved:
+            await cl.Message(
+                content=f"💾 **LLM 配置已保存**: {save_llm_name}",
+                author="system",
+            ).send()
     
     # 验证配置
     errors = new_config.validate()
@@ -963,9 +1030,12 @@ async def on_settings_update(settings: dict):
     await config_storage.save_config(user_id, new_config)
     cl.user_session.set("config", new_config)
     
-    # 如果 provider 变更，刷新设置面板
-    if provider_changed:
-        settings_widgets = build_settings_widgets(new_config)
+    # 刷新设置面板（显示新保存的 LLM 配置）
+    llm_configs = await config_storage.get_user_llm_configs(user_id)
+    need_refresh = provider_changed or save_llm_name or (llm_preset and llm_preset != "(手动输入)")
+    if need_refresh:
+        # 传递当前选择的预设，保持选中状态
+        settings_widgets = build_settings_widgets(new_config, llm_configs, selected_preset=llm_preset)
         await cl.ChatSettings(settings_widgets).send()
     
     # 重新创建 Agent
@@ -1071,8 +1141,9 @@ async def on_chat_resume(thread: dict):
         cl.user_session.set("agent", agent)
         cl.user_session.set("thread_id", thread["id"])
         
-        # 初始化设置面板
-        settings_widgets = build_settings_widgets(config)
+        # 初始化设置面板（包含用户保存的 LLM 配置）
+        llm_configs = await config_storage.get_user_llm_configs(user_id)
+        settings_widgets = build_settings_widgets(config, llm_configs)
         await cl.ChatSettings(settings_widgets).send()
         
         await cl.Message(
@@ -1099,8 +1170,9 @@ async def on_chat_start():
     # ⭐ 初始化消息历史（关键：保持对话上下文）
     cl.user_session.set("message_history", [])
     
-    # 初始化设置面板
-    settings_widgets = build_settings_widgets(config)
+    # 初始化设置面板（包含用户保存的 LLM 配置）
+    llm_configs = await config_storage.get_user_llm_configs(user_id)
+    settings_widgets = build_settings_widgets(config, llm_configs)
     await cl.ChatSettings(settings_widgets).send()
     
     # 发送欢迎消息
@@ -1336,9 +1408,22 @@ async def on_message(message: cl.Message):
             if hasattr(msg, 'content') and msg.content:
                 msg_type = type(msg).__name__
                 if msg_type in ["AIMessage", "AIMessageChunk"] or node in ["agent", "model", "final"]:
-                    # 流式输出 token
-                    await response_msg.stream_token(msg.content)
-                    full_response += msg.content
+                    # 处理 content (可能是 str 或 list，Anthropic 返回 list)
+                    content = msg.content
+                    if isinstance(content, list):
+                        # Anthropic 格式: [{"type": "text", "text": "..."}]
+                        text_parts = []
+                        for block in content:
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                text_parts.append(block.get("text", ""))
+                            elif isinstance(block, str):
+                                text_parts.append(block)
+                        content = "".join(text_parts)
+                    
+                    if content:
+                        # 流式输出 token
+                        await response_msg.stream_token(content)
+                        full_response += content
 
         # 更新最终消息
         if full_response:

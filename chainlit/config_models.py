@@ -217,6 +217,47 @@ class UserScene:
 UserPreset = UserScene
 
 
+# 支持的 API 协议
+API_PROTOCOLS = ["openai", "anthropic"]
+
+
+@dataclass
+class LLMConfig:
+    """自定义 LLM 配置数据类.
+    
+    用于存储用户自定义的 LLM API 配置。
+    """
+    
+    id: str  # 配置 ID (唯一标识)
+    name: str  # 显示名称 (如 "Claude Proxy", "DeepSeek")
+    api_key: str  # API Key
+    api_url: str  # API Base URL
+    model: str  # 模型名称
+    protocol: str = "openai"  # API 协议: openai 或 anthropic
+    user_id: str = ""  # 所属用户
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典."""
+        return asdict(self)
+    
+    def to_json(self) -> str:
+        """序列化为 JSON."""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LLMConfig":
+        """从字典创建."""
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered_data)
+    
+    def get_display_name(self) -> str:
+        """获取显示名称."""
+        return f"🤖 {self.name} ({self.model})"
+
+
 @dataclass
 class UserConfig:
     """用户配置数据类.
@@ -224,11 +265,16 @@ class UserConfig:
     包含所有可配置项，支持序列化到 JSON 存储。
     """
     
-    # API 设置
+    # API 设置 (简化版: 直接配置 API key/URL/model/protocol)
+    api_key: Optional[str] = None  # API Key
+    api_url: Optional[str] = None  # API Base URL
+    model: str = "deepseek-chat"   # 模型名称
+    api_protocol: str = "openai"   # API 协议: openai 或 anthropic
+    
+    # 兼容旧配置
     provider: str = APIProvider.SILICONFLOW.value
-    model: str = "deepseek-chat"
     custom_model: Optional[str] = None
-    api_key_override: Optional[str] = None
+    api_key_override: Optional[str] = None  # 已弃用，使用 api_key
     
     # 模型参数
     temperature: float = 0.7
@@ -333,16 +379,74 @@ class UserConfig:
     def get_effective_model(self) -> str:
         """获取实际使用的模型名称."""
         return self.custom_model if self.custom_model else self.model
+    
+    def get_effective_api_key(self) -> Optional[str]:
+        """获取实际使用的 API Key.
+        
+        优先级: api_key > api_key_override > CUSTOM_API_KEY > provider 环境变量
+        """
+        if self.api_key:
+            return self.api_key
+        if self.api_key_override:
+            return self.api_key_override
+        # 回退到 CUSTOM_API_KEY
+        custom_key = os.getenv("CUSTOM_API_KEY")
+        if custom_key:
+            return custom_key
+        # 回退到 provider 环境变量
+        provider_env_map = {
+            APIProvider.SILICONFLOW.value: "SILICONFLOW_API_KEY",
+            APIProvider.OPENAI.value: "OPENAI_API_KEY",
+            APIProvider.ANTHROPIC.value: "ANTHROPIC_API_KEY",
+            APIProvider.OPENROUTER.value: "OPENROUTER_API_KEY",
+        }
+        env_key = provider_env_map.get(self.provider, "SILICONFLOW_API_KEY")
+        return os.getenv(env_key)
+    
+    def get_effective_api_url(self) -> Optional[str]:
+        """获取实际使用的 API URL.
+        
+        优先级: api_url > CUSTOM_API_URL > provider 默认 URL
+        """
+        if self.api_url:
+            return self.api_url
+        # 回退到 CUSTOM_API_URL
+        custom_url = os.getenv("CUSTOM_API_URL")
+        if custom_url:
+            return custom_url
+        # 回退到 provider 默认 URL
+        provider_url_map = {
+            APIProvider.SILICONFLOW.value: "https://api.siliconflow.cn/v1",
+            APIProvider.OPENAI.value: None,  # OpenAI 使用默认
+            APIProvider.ANTHROPIC.value: None,  # Anthropic 使用默认
+            APIProvider.OPENROUTER.value: "https://openrouter.ai/api/v1",
+        }
+        return provider_url_map.get(self.provider)
 
 
 def get_default_config() -> UserConfig:
-    """获取默认配置实例."""
-    model = os.getenv("SILICONFLOW_MODEL", "deepseek-chat")
+    """获取默认配置实例.
+    
+    优先读取 CUSTOM_API_* 环境变量，否则使用 SILICONFLOW_* 配置。
+    """
+    # 优先使用自定义 API 配置
+    custom_api_key = os.getenv("CUSTOM_API_KEY")
+    custom_api_url = os.getenv("CUSTOM_API_URL")
+    custom_api_model = os.getenv("CUSTOM_API_MODEL")
+    custom_api_protocol = os.getenv("CUSTOM_API_PROTOCOL", "openai")
+    
+    # 回退到 SiliconFlow 配置
+    model = custom_api_model or os.getenv("SILICONFLOW_MODEL", "deepseek-chat")
     temperature = float(os.getenv("SILICONFLOW_TEMPERATURE", "0.7"))
     max_tokens = int(os.getenv("SILICONFLOW_MAX_TOKENS", "8000"))
     enable_mcp = os.getenv("ENABLE_MCP", "false").lower() == "true"
     
     return UserConfig(
+        # 自定义 API 配置
+        api_key=custom_api_key,
+        api_url=custom_api_url,
+        api_protocol=custom_api_protocol if custom_api_key else "openai",
+        # 模型和参数
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
