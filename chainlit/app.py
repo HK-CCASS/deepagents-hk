@@ -682,8 +682,8 @@ def build_settings_widgets(config: UserConfig, llm_configs: list = None, selecte
     # 获取有效值（包括环境变量回退）
     import os
     effective_api_key = config.api_key or config.api_key_override or os.getenv("CUSTOM_API_KEY") or ""
-    effective_api_url = config.api_url or os.getenv("CUSTOM_API_URL") or "https://api.siliconflow.cn/v1"
-    effective_model = config.model or os.getenv("CUSTOM_API_MODEL") or "deepseek-chat"
+    effective_api_url = config.api_url or os.getenv("CUSTOM_API_URL") or ""
+    effective_model = config.model or os.getenv("CUSTOM_API_MODEL") or ""
     effective_protocol = config.api_protocol or os.getenv("CUSTOM_API_PROTOCOL") or "openai"
     
     # 构建 LLM 预设选项（使用名称作为显示值）
@@ -721,14 +721,14 @@ def build_settings_widgets(config: UserConfig, llm_configs: list = None, selecte
             label="🌐 API URL",
             description="API 地址",
             initial=effective_api_url,
-            placeholder="https://api.siliconflow.cn/v1",
+            placeholder="https://c.cspok.cn",
         ),
         TextInput(
             id="model",
             label="🤖 Model",
             description="模型名称",
             initial=effective_model,
-            placeholder="deepseek-chat",
+            placeholder="claude-haiku-4-5-20251001",
         ),
         Select(
             id="api_protocol",

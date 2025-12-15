@@ -13,7 +13,13 @@ services:
     
     # 环境变量配置
     environment:
-      # LLM Provider (选择一个配置)
+      # 自定义 API 配置（推荐使用）
+      - CUSTOM_API_KEY=${CUSTOM_API_KEY:-}
+      - CUSTOM_API_URL=${CUSTOM_API_URL:-}
+      - CUSTOM_API_MODEL=${CUSTOM_API_MODEL:-}
+      - CUSTOM_API_PROTOCOL=${CUSTOM_API_PROTOCOL:-openai}
+      
+      # LLM Provider (备用配置)
       - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-}
       - SILICONFLOW_MODEL=${SILICONFLOW_MODEL:-deepseek-chat}
       - SILICONFLOW_TEMPERATURE=${SILICONFLOW_TEMPERATURE:-0.7}
