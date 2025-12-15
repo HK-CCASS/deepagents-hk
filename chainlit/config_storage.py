@@ -559,6 +559,71 @@ class ConfigStorage:
         except Exception as e:
             print(f"删除 LLM 配置失败: {e}")
             return False
+    
+    async def get_llm_config_by_name(self, user_id: str, name: str) -> Optional[LLMConfig]:
+        """按名称获取用户的 LLM 配置.
+        
+        Args:
+            user_id: 用户 ID
+            name: 配置名称
+            
+        Returns:
+            LLM 配置对象，不存在则返回 None
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    "SELECT * FROM llm_configs WHERE user_id = ? AND name = ?",
+                    (user_id, name)
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return LLMConfig(
+                            id=row["id"],
+                            user_id=row["user_id"],
+                            name=row["name"],
+                            api_key=row["api_key"],
+                            api_url=row["api_url"],
+                            model=row["model"],
+                            protocol=row["protocol"],
+                            created_at=row["created_at"],
+                            updated_at=row["updated_at"],
+                        )
+            return None
+        except Exception as e:
+            print(f"按名称获取 LLM 配置失败: {e}")
+            return None
+    
+    async def update_llm_config(self, llm_config: LLMConfig) -> bool:
+        """更新 LLM 配置（根据 ID）.
+        
+        Args:
+            llm_config: LLM 配置对象
+            
+        Returns:
+            是否更新成功
+        """
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    UPDATE llm_configs 
+                    SET name = ?, api_key = ?, api_url = ?, model = ?, protocol = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (
+                    llm_config.name,
+                    llm_config.api_key,
+                    llm_config.api_url,
+                    llm_config.model,
+                    llm_config.protocol,
+                    llm_config.id,
+                ))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"更新 LLM 配置失败: {e}")
+            return False
 
 
 # 全局配置存储实例（延迟初始化）

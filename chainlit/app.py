@@ -800,12 +800,7 @@ def build_settings_widgets(config: UserConfig, llm_configs: list = None, selecte
             description="关闭后需手动审批危险操作",
             initial=config.auto_approve,
         ),
-        Switch(
-            id="test_connection",
-            label="🔌 测试连接",
-            description="开启后点击确认测试模型",
-            initial=False,
-        ),
+        # 注：test_connection 改为独立 Action 按钮，不再使用 Switch
     ]
 
 
@@ -909,9 +904,155 @@ async def test_model_connection(config: UserConfig) -> tuple[bool, str, float]:
             return False, f"❌ 连接失败: {error_msg[:100]}", 0
 
 
+# ============== LLM 配置管理 Action ==============
+
+async def send_llm_config_actions(config_name: str, config_id: str):
+    """发送 LLM 配置操作按钮.
+    
+    Args:
+        config_name: 配置名称
+        config_id: 配置 ID
+    """
+    actions = [
+        cl.Action(
+            name="test_llm_connection",
+            payload={"config_id": config_id, "name": config_name},
+            label="🔌 测试连接",
+        ),
+        cl.Action(
+            name="update_llm_config",
+            payload={"config_id": config_id, "name": config_name},
+            label="📝 更新配置",
+        ),
+        cl.Action(
+            name="delete_llm_config",
+            payload={"config_id": config_id, "name": config_name},
+            label="🗑️ 删除配置",
+        ),
+    ]
+    await cl.Message(
+        content=f"已加载配置 **{config_name}**，可执行以下操作：",
+        actions=actions,
+        author="system",
+    ).send()
+
+
+@cl.action_callback("test_llm_connection")
+async def on_test_llm_connection(action: cl.Action):
+    """处理测试连接按钮点击."""
+    config = cl.user_session.get("config")
+    config_name = action.payload.get("name", "当前配置")
+    
+    if not config:
+        await cl.Message(content="⚠️ 配置未加载，请刷新页面", author="system").send()
+        return
+    
+    # 显示测试中状态
+    test_msg = cl.Message(content=f"🔄 **正在测试 {config_name} 连接...**", author="system")
+    await test_msg.send()
+    
+    # 执行测试
+    success, message, elapsed = await test_model_connection(config)
+    
+    # 更新消息显示结果
+    if success:
+        test_msg.content = (
+            f"✅ **连接测试成功**\n\n"
+            f"- {message}\n"
+            f"- 响应时间: {elapsed:.2f} 秒"
+        )
+    else:
+        test_msg.content = (
+            f"**连接测试失败**\n\n"
+            f"- {message}\n\n"
+            f"💡 请检查 API Key 和模型名称是否正确"
+        )
+    
+    await test_msg.update()
+
+
+@cl.action_callback("update_llm_config")
+async def on_update_llm_config(action: cl.Action):
+    """处理更新配置按钮点击 - 用当前表单值更新已保存的配置."""
+    config_id = action.payload.get("config_id")
+    config_name = action.payload.get("name")
+    
+    user = cl.user_session.get("user")
+    user_id = user.identifier if user else "anonymous"
+    current_config = cl.user_session.get("config")
+    
+    if not config_id or not current_config:
+        await cl.Message(content="⚠️ 无法更新：配置信息缺失", author="system").send()
+        return
+    
+    # 用当前配置更新数据库中的 LLM 配置
+    updated_llm = LLMConfig(
+        id=config_id,
+        user_id=user_id,
+        name=config_name,
+        api_key=current_config.api_key or "",
+        api_url=current_config.api_url or "",
+        model=current_config.model or "",
+        protocol=current_config.api_protocol or "openai",
+    )
+    
+    success = await config_storage.update_llm_config(updated_llm)
+    
+    if success:
+        masked_key = (current_config.api_key[:8] + "...") if current_config.api_key else "(未设置)"
+        await cl.Message(
+            content=f"✅ **配置 {config_name} 已更新**\n\n"
+                    f"- 🌐 API URL: `{current_config.api_url or '默认'}`\n"
+                    f"- 🤖 Model: `{current_config.model}`\n"
+                    f"- 🔑 API Key: `{masked_key}`\n"
+                    f"- 📡 Protocol: `{current_config.api_protocol}`",
+            author="system",
+        ).send()
+    else:
+        await cl.Message(content=f"❌ 更新配置 {config_name} 失败", author="system").send()
+
+
+@cl.action_callback("delete_llm_config")
+async def on_delete_llm_config(action: cl.Action):
+    """处理删除配置按钮点击."""
+    config_id = action.payload.get("config_id")
+    config_name = action.payload.get("name")
+    
+    if not config_id:
+        await cl.Message(content="⚠️ 无法删除：配置 ID 缺失", author="system").send()
+        return
+    
+    # 确认删除
+    res = await cl.AskActionMessage(
+        content=f"⚠️ 确定要删除配置 **{config_name}** 吗？此操作不可恢复。",
+        actions=[
+            cl.Action(name="confirm_delete", payload={"id": config_id, "name": config_name}, label="🗑️ 确认删除"),
+            cl.Action(name="cancel_delete", payload={}, label="取消"),
+        ],
+    ).send()
+    
+    if res and res.get("name") == "confirm_delete":
+        success = await config_storage.delete_llm_config(config_id)
+        if success:
+            await cl.Message(content=f"✅ 配置 **{config_name}** 已删除", author="system").send()
+            
+            # 刷新设置面板
+            user = cl.user_session.get("user")
+            user_id = user.identifier if user else "anonymous"
+            current_config = cl.user_session.get("config") or get_default_config()
+            llm_configs = await config_storage.get_user_llm_configs(user_id)
+            settings_widgets = build_settings_widgets(current_config, llm_configs)
+            await cl.ChatSettings(settings_widgets).send()
+        else:
+            await cl.Message(content=f"❌ 删除配置 {config_name} 失败", author="system").send()
+    else:
+        await cl.Message(content="已取消删除", author="system").send()
+
+
+# 保留旧的 test_connection 回调以兼容
 @cl.action_callback("test_connection")
 async def on_test_connection(action: cl.Action):
-    """处理测试连接按钮点击."""
+    """处理测试连接按钮点击（旧版兼容）."""
     config = cl.user_session.get("config")
     if not config:
         await cl.Message(content="⚠️ 配置未加载，请刷新页面", author="system").send()
@@ -975,16 +1116,12 @@ async def on_settings_update(settings: dict):
             settings["api_protocol"] = llm_config.protocol
             preset_applied = True
             
-            # 显示预设应用提示
-            masked_key = llm_config.api_key[:8] + "..." if llm_config.api_key else "(未设置)"
-            await cl.Message(
-                content=f"📂 **已加载配置**: {preset_name}\n\n"
-                        f"- 🌐 API URL: `{llm_config.api_url or '默认'}`\n"
-                        f"- 🤖 Model: `{llm_config.model}`\n"
-                        f"- 🔑 API Key: `{masked_key}`\n"
-                        f"- 📡 Protocol: `{llm_config.protocol}`",
-                author="system",
-            ).send()
+            # 保存当前选中的配置 ID，供 Action 使用
+            cl.user_session.set("selected_llm_config_id", llm_config.id)
+            cl.user_session.set("selected_llm_config_name", llm_config.name)
+            
+            # 发送操作按钮（测试/更新/删除）
+            await send_llm_config_actions(llm_config.name, llm_config.id)
     
     # 转换设置为配置
     new_config = settings_to_config(settings, current_config)
@@ -1055,31 +1192,7 @@ async def on_settings_update(settings: dict):
             author="system",
         ).send()
         
-        # 检查是否需要测试连接
-        should_test = settings.get("test_connection", False)
-        if should_test:
-            # 显示测试中状态
-            test_msg = cl.Message(content="🔄 **正在测试连接...**", author="system")
-            await test_msg.send()
-            
-            # 执行测试
-            success, message, elapsed = await test_model_connection(new_config)
-            
-            # 更新消息显示结果
-            if success:
-                test_msg.content = (
-                    f"✅ **连接测试成功**\n\n"
-                    f"- {message}\n"
-                    f"- 响应时间: {elapsed:.2f} 秒"
-                )
-            else:
-                test_msg.content = (
-                    f"**连接测试失败**\n\n"
-                    f"- {message}\n\n"
-                    f"💡 请检查 API Key 和模型名称是否正确"
-                )
-            
-            await test_msg.update()
+        # 注：test_connection 已改为独立 Action 按钮，不再在设置保存时自动测试
         
     except Exception as e:
         await cl.Message(
