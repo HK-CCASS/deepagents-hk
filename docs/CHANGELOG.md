@@ -2,6 +2,27 @@
 
 This file records changes made during assisted development sessions.
 
+## 2025-12-16 10:35
+
+### README 整体优化
+
+**变更摘要**：优化 README.md 结构和内容，提升首屏简洁度。
+
+**涉及文件**：
+- `README.md` - +20 行, -21 行
+
+**改动内容**：
+1. 更新 Upstream Sync 徽章日期：`2025-11-25` → `2025-12-03`
+2. 将 3 个历史更新板块合并为可折叠 `<details>` 区块
+3. 移除无效文档链接 `docs/SKILLS_QUICK_START.md`
+4. 移除联系方式中的 email 占位符
+
+**验证结果**：
+- `git diff` 确认改动符合预期
+- ✅ 已提交 (`f189d15d`) 并推送到 `origin/feature/chainlit-integration`
+
+---
+
 ## 2025-12-15 20:45
 
 ### LLM 配置管理功能增强
