@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Upstream Sync](https://img.shields.io/badge/upstream-synced%202025--11--25-brightgreen.svg)](https://github.com/langchain-ai/deepagents)
+[![Upstream Sync](https://img.shields.io/badge/upstream-synced%202025--12--03-brightgreen.svg)](https://github.com/langchain-ai/deepagents)
 
 基于 Deep Agents 框架开发的港股交易数据分析智能代理系统，专门用于处理港交所公告、PDF 文档解析和智能摘要生成。
 
@@ -12,31 +12,34 @@
 - 📡 **多协议支持**：支持 OpenAI 和 Anthropic 两种 API 协议，可在设置面板中切换
 - 🔧 **设置面板增强**：简化 API 配置为 4 个核心字段（API Key、URL、Model、Protocol），移除冗余选项
 
-**历史更新** (2025-12-03):
+<details>
+<summary><b>📜 历史更新记录（点击展开）</b></summary>
+
+**2025-12-03**:
 - 🌐 **OpenRouter 支持**：新增 OpenRouter 作为 API Provider，支持通过单一接口访问 Claude、GPT、Gemini、DeepSeek 等多模型
-- 📊 **Excel 上传支持**：Web 界面新增 xlsx/xls 文件上传功能，可上传分析 Excel 数据
-- 🎯 **设置面板简化**：移除场景系统，简化为直接编辑系统提示词
-- 🔧 **自定义模型支持**：设置面板新增自定义模型输入框，可使用任意模型名称（如 `anthropic/claude-sonnet-4`）
-- 🔌 **模型连接测试**：设置面板新增"测试连接"开关，验证模型配置是否正确可用
-- 📊 **Max Tokens 自由输入**：Max Tokens 从滑块改为文本框，支持任意值输入（上限 100 万）
-- 👤 **用户注册功能**：新增用户自助注册页面，无默认账号，所有用户需注册后使用
-- 🔍 **思考细节显示**：Web 界面新增工具调用步骤卡片，可折叠查看输入参数和执行结果
-- 🧠 **对话上下文修复**：修复 Chainlit Web 界面"失忆"问题，Agent 现在能记住完整对话历史
-- ⚙️ **Chainlit 配置面板**：Web 界面新增可视化配置面板，支持实时调整模型、参数和系统提示词
-- 💾 **用户配置持久化**：配置按用户保存到 SQLite 数据库，下次登录自动恢复
-- ✅ **自动审批开关**：新增工具调用自动审批设置，可在配置面板中切换
-- 📎 **文件下载链接**：Agent 生成的文件（.md, .pdf, .xlsx 等）自动提供下载按钮
+- 📊 **Excel 上传支持**：Web 界面新增 xlsx/xls 文件上传功能
+- 🔧 **自定义模型支持**：设置面板新增自定义模型输入框
+- 🔌 **模型连接测试**：设置面板新增"测试连接"开关
+- 👤 **用户注册功能**：新增用户自助注册页面
+- 🔍 **思考细节显示**：Web 界面新增工具调用步骤卡片
+- 🧠 **对话上下文修复**：修复 Chainlit Web 界面"失忆"问题
+- ⚙️ **Chainlit 配置面板**：Web 界面新增可视化配置面板
+- 💾 **用户配置持久化**：配置按用户保存到 SQLite 数据库
+- ✅ **自动审批开关**：新增工具调用自动审批设置
+- 📎 **文件下载链接**：Agent 生成的文件自动提供下载按钮
 - 📝 **统一系统提示词**：Chainlit 现使用与 CLI 相同的完整系统提示词
 
-**历史更新** (2025-11-25):
+**2025-11-25**:
 - 🔄 **上游同步**：上下文窗口分数、工具返回字符串优化、Windows路径修复
 - 📦 **依赖升级**：langchain 1.1.0, langchain-core 1.1.0, langchain-anthropic 1.2.0
 - 🛡️ **安全增强**：拒绝Windows绝对路径，防止静默数据损坏
 
-**历史更新** (2025-11-20):
+**2025-11-20**:
 - 🎯 **Skills系统集成**：可重用的领域知识模块，渐进式披露，标准化分析流程
 - 🧠 **双范围内存**：用户级和项目级分离的Agent记忆系统
 - 📚 详见 [Skills系统最终状态报告](docs/SKILLS_MERGE_FINAL_STATUS.md)
+
+</details>
 
 ## ✨ 核心特性
 
@@ -348,7 +351,6 @@ Agent扫描技能列表（渐进式披露）
 ```
 
 **📖 完整文档**：
-- [Skills快速上手](docs/SKILLS_QUICK_START.md) - 5分钟入门
 - [Skills用户指南](docs/SKILLS_USER_GUIDE.md) - 完整使用手册
 - [Skills集成状态](docs/SKILLS_MERGE_FINAL_STATUS.md) - 技术细节
 
@@ -1120,10 +1122,7 @@ OPENAI_MODEL=gpt-4o
 
 ## 📮 联系方式
 
-如有问题或建议，请通过以下方式联系：
-
-- **Issues**: [GitHub Issues](https://github.com/HK-CCASS/deepagents-hk/issues)
-- **Email**: your-email@example.com
+如有问题或建议，请通过 [GitHub Issues](https://github.com/HK-CCASS/deepagents-hk/issues) 反馈。
 
 ---
 
